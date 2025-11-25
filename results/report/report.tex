@@ -1,0 +1,72 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin=22mm]{geometry}
+\title{CV-MsAtViT 3地点レポート}
+\date{}
+\begin{document}
+\maketitle
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lrrr}
+    \toprule
+    データセット & OA(%) & AA(%) & カッパ×100 \ 
+    \midrule
+    Flevoland & 97.45 & 96.76 & 97.22 \
+    San Francisco & 97.86 & 94.53 & 96.65 \
+    Oberpfaffenhofen & 59.90 & 45.64 & 18.85 \
+    \bottomrule
+  \end{tabular}
+\end{table}
+\section{Flevoland}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\linewidth]{results/paper/figs/triptych_Full_FL_T.png}
+  \caption{Flevoland: PauliRGB/GT/予測}
+\end{figure}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lrrr}
+    \toprule
+    指標 & OA(%) & AA(%) & カッパ×100 \
+    \midrule
+    値 & 97.45 & 96.76 & 97.22 \
+    \bottomrule
+  \end{tabular}
+\end{table}
+\section{San Francisco}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\linewidth]{results/paper/figs/triptych_Full_SF.png}
+  \caption{San Francisco: PauliRGB/GT/予測}
+\end{figure}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lrrr}
+    \toprule
+    指標 & OA(%) & AA(%) & カッパ×100 \
+    \midrule
+    値 & 97.86 & 94.53 & 96.65 \
+    \bottomrule
+  \end{tabular}
+\end{table}
+\section{Oberpfaffenhofen}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\linewidth]{results/paper/figs/triptych_Full_ober.png}
+  \caption{Oberpfaffenhofen: PauliRGB/GT/予測}
+\end{figure}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lrrr}
+    \toprule
+    指標 & OA(%) & AA(%) & カッパ×100 \
+    \midrule
+    値 & 59.90 & 45.64 & 18.85 \
+    \bottomrule
+  \end{tabular}
+\end{table}
+\end{document}

@@ -1,3 +1,4 @@
+import os
 import scipy.io as sio
 import numpy as np
 from SAR_utils import *
@@ -135,16 +136,16 @@ class PatchEncoder(layers.Layer):
 
 def MultiScaleFeatureExtractor(inputs):    
     # Spatial Path
-    x1 = ComplexConv3D(filters=8, kernel_size=(3, 3, 1), activation='cart_relu', padding='same')(inputs)
-    x1 = ComplexConv3D(filters=8, kernel_size=(3, 3, 1), activation='cart_relu',padding='same')(x1)
+    x1 = ComplexConv3D(filters=8, kernel_size=(3, 3, 1), activation='cart_relu', padding='same', name='spatial_conv3d_block1')(inputs)
+    x1 = ComplexConv3D(filters=8, kernel_size=(3, 3, 1), activation='cart_relu',padding='same', name='spatial_conv3d_block2')(x1)
     
     # Polarimtric Path
-    x2 = ComplexConv3D(filters=8, kernel_size=(1, 1, 3), activation='cart_relu',padding='same')(inputs)
-    x2 = ComplexConv3D(filters=8, kernel_size=(1, 1, 3), activation='cart_relu',padding='same')(x2)
+    x2 = ComplexConv3D(filters=8, kernel_size=(1, 1, 3), activation='cart_relu',padding='same', name='polar_conv3d_block1')(inputs)
+    x2 = ComplexConv3D(filters=8, kernel_size=(1, 1, 3), activation='cart_relu',padding='same', name='polar_conv3d_block2')(x2)
 
     # Spatial-Polarimtric Path
-    x3 = ComplexConv3D(filters=8, kernel_size=(3, 3, 3), activation='cart_relu',padding='same')(inputs)
-    x3 = ComplexConv3D(filters=8, kernel_size=(3, 3, 3), activation='cart_relu',padding='same')(x3)
+    x3 = ComplexConv3D(filters=8, kernel_size=(3, 3, 3), activation='cart_relu',padding='same', name='spatial_polar_conv3d_block1')(inputs)
+    x3 = ComplexConv3D(filters=8, kernel_size=(3, 3, 3), activation='cart_relu',padding='same', name='spatial_polar_conv3d_block2')(x3)
 
     concatenated_features = tf.concat([x1,x2,x3],axis=4);
     
@@ -285,3 +286,6 @@ sio.savemat(name+'.mat', {name: new_map})
 
 
 
+model_save_dir = os.path.join('ckpt', 'CV_MsAtViT_saved')
+model.save(model_save_dir)
+print('Model saved to', model_save_dir)
