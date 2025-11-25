@@ -129,7 +129,9 @@ def visualize_kernels_for_branch(
     kD, kH, kW, in_ch, out_ch = kernel.shape
     spatial_axes = [i for i, size in enumerate((kD, kH, kW)) if size == 3]
     if len(spatial_axes) < 2:
-        raise ValueError(f"Layer {layer.name} does not have two spatial axes of size 3")
+        raise ValueError(
+            f"Layer {layer.name} does not have two spatial axes of size 3; shape={kernel.shape}"
+        )
     spatial_axes = spatial_axes[:2]
     depth_axis = [i for i in range(3) if i not in spatial_axes][0]
     perm = spatial_axes + [depth_axis, 3, 4]

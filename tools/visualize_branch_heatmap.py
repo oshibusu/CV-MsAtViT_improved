@@ -37,6 +37,16 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
+def normalize(arr: np.ndarray) -> np.ndarray:
+    arr = np.asarray(arr)
+    min_val = arr.min()
+    max_val = arr.max()
+    denom = max_val - min_val
+    if denom < 1e-9:
+        return np.zeros_like(arr)
+    return (arr - min_val) / denom
+
+
 def extract_patches_with_centers(
     data: np.ndarray,
     gt: np.ndarray,
@@ -60,6 +70,71 @@ def extract_patches_with_centers(
     centers = np.asarray(centers, dtype=np.int32)
     patches = np.expand_dims(patches, axis=4)
     return patches, centers
+
+
+def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: int = 0, in_idx: int = 0) -> np.ndarray:
+    weights = layer.get_weights()
+    if not weights:
+        raise RuntimeError(f"Layer {layer.name} has no weights")
+    kernel = weights[0]
+    if not np.iscomplexobj(kernel):
+        kernel = kernel.astype(np.complex64)
+    print(f"[heatmap kernels] {layer.name} kernel shape: {kernel.shape}")
+    kD, kH, kW, in_ch, out_ch = kernel.shape
+    spatial_axes = [i for i, size in enumerate((kD, kH, kW)) if size == 3]
+    if len(spatial_axes) < 2:
+        raise ValueError(f"Layer {layer.name} lacks two spatial axes of size 3")
+    spatial_axes = spatial_axes[:2]
+    depth_axis = [i for i in range(3) if i not in spatial_axes][0]
+    perm = spatial_axes + [depth_axis, 3, 4]
+    kernel_perm = np.transpose(kernel, axes=perm)
+    depth_len = kernel_perm.shape[2]
+    if depth_idx >= depth_len:
+        depth_idx = 0
+    if in_idx >= kernel_perm.shape[3]:
+        in_idx = 0
+    if filter_idx >= kernel_perm.shape[4]:
+        raise ValueError(f"Filter index {filter_idx} out of range for layer {layer.name}")
+    slice_2d = kernel_perm[:, :, depth_idx, in_idx, filter_idx]
+    if slice_2d.shape != (3, 3):
+        slice_2d = np.reshape(slice_2d, (3, 3))
+    return slice_2d
+
+
+def save_filter_heatmap_combo(
+    branch_name: str,
+    filter_idx: int,
+    kernel_slice: np.ndarray,
+    heatmap: np.ndarray,
+    out_dir: Path,
+):
+    heatmap_dir = ensure_dir(out_dir / branch_name)
+    heatmap_norm = normalize(heatmap)
+    fig = plt.figure(figsize=(10, 5))
+    gs = fig.add_gridspec(2, 3)
+    titles = ["Re", "Im", "|z|", "arg(z)"]
+    values = [
+        normalize(np.real(kernel_slice)),
+        normalize(np.imag(kernel_slice)),
+        normalize(np.abs(kernel_slice)),
+        np.angle(kernel_slice),
+    ]
+    cmaps = ["gray", "gray", "gray", "twilight"]
+    for i in range(4):
+        ax = fig.add_subplot(gs[i // 2, i % 2])
+        ax.imshow(values[i], cmap=cmaps[i], vmin=None if i < 3 else -np.pi, vmax=None if i < 3 else np.pi)
+        ax.set_title(titles[i])
+        ax.axis("off")
+    ax_heat = fig.add_subplot(gs[:, 2])
+    im = ax_heat.imshow(heatmap_norm, cmap="hot", vmin=0.0, vmax=1.0)
+    ax_heat.set_title("Response heatmap")
+    ax_heat.axis("off")
+    fig.colorbar(im, ax=ax_heat, fraction=0.046, pad=0.04)
+    fig.suptitle(f"{branch_name} filter {filter_idx}")
+    combo_file = heatmap_dir / f"combo_filter{filter_idx:02d}.png"
+    fig.tight_layout()
+    fig.savefig(combo_file, dpi=200)
+    plt.close(fig)
 
 
 def generate_branch_heatmaps(
@@ -96,6 +171,7 @@ def generate_branch_heatmaps(
 
     counts[counts == 0] = 1.0
     save_root = ensure_dir(out_dir / branch_name)
+    branch_layer = model.get_layer(branch_name)
     for f, arr in heatmaps.items():
         norm = arr / counts
         norm = np.where(norm > 0, norm, 0)
@@ -109,6 +185,8 @@ def generate_branch_heatmaps(
         outfile = save_root / f"filter{f:02d}.png"
         fig.savefig(outfile, dpi=200)
         plt.close(fig)
+        kernel_slice = get_kernel_slice(branch_layer, f)
+        save_filter_heatmap_combo(branch_name, f, kernel_slice, norm, out_dir)
 
 
 def main():
