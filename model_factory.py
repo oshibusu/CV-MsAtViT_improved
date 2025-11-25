@@ -92,14 +92,14 @@ def MultiScaleFeatureExtractor(inputs):
         kernel_size=(3, 3, 3),
         activation="cart_relu",
         padding="same",
-        name="spatial_polar_conv3d_block1",
+        name="joint_conv3d_block1",
     )(inputs)
     x3 = ComplexConv3D(
         filters=8,
         kernel_size=(3, 3, 3),
         activation="cart_relu",
         padding="same",
-        name="spatial_polar_conv3d_block2",
+        name="joint_conv3d_block2",
     )(x3)
 
     concatenated_features = tf.concat([x1, x2, x3], axis=4)
