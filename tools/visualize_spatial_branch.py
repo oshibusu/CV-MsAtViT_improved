@@ -12,6 +12,7 @@ import tensorflow as tf
 
 from Load_Data import load_data
 from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet, cart_gelu
+from cvnn.activations import cart_relu, cart_sigmoid, softmax_real_with_abs
 
 SPATIAL_LAYER_NAMES = [
     "spatial_conv3d_block1",
@@ -128,7 +129,10 @@ def visualize_feature_maps(model: tf.keras.Model, samples: np.ndarray, labels: n
 
 def main():
     args = parse_args()
-    custom_objects = {"cart_gelu": cart_gelu}
+    custom_objects = {"cart_gelu": cart_gelu,
+                       "cart_relu": cart_relu,
+                       "cart_sigmoid": cart_sigmoid,
+                       "softmax_real_with_abs": softmax_real_with_abs}
     model = tf.keras.models.load_model(args.ckpt, compile=False, custom_objects=custom_objects)
     out_dir = ensure_dir(Path(args.output))
     visualize_kernels(model, out_dir)
