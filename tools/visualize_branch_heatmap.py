@@ -81,36 +81,42 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
         kernel = kernel.astype(np.complex64)
     print(f"[heatmap kernels] {layer.name} kernel shape: {kernel.shape}")
     kD, kH, kW, in_ch, out_ch = kernel.shape
-    sizes = (kD, kH, kW)
-    spatial_axes = [i for i, size in enumerate(sizes) if size == 3]
-    if len(spatial_axes) >= 2:
-        spatial_axes = spatial_axes[:2]
-    elif len(spatial_axes) == 1:
-        # use the single axis with size 3 and pick one of the remaining axes (size 1) as pseudo spatial
-        other = next(i for i in range(3) if i != spatial_axes[0])
-        spatial_axes = [spatial_axes[0], other]
-    else:
-        raise ValueError(
-            f"Layer {layer.name} lacks an axis of size 3 to visualize; shape={kernel.shape}"
-        )
-    depth_axis = next(i for i in range(3) if i not in spatial_axes)
-    perm = spatial_axes + [depth_axis, 3, 4]
-    kernel_perm = np.transpose(kernel, axes=perm)
-    depth_len = kernel_perm.shape[2]
-    if depth_idx >= depth_len:
-        depth_idx = 0
-    if in_idx >= kernel_perm.shape[3]:
-        in_idx = 0
-    if filter_idx >= kernel_perm.shape[4]:
+
+    def branch_type(name: str) -> str:
+        if "spatial_conv3d" in name:
+            return "spatial"
+        if "polar_conv3d" in name:
+            return "polar"
+        if "joint_conv3d" in name:
+            return "joint"
+        return "other"
+
+    btype = branch_type(layer.name)
+    if filter_idx >= out_ch:
         raise ValueError(f"Filter index {filter_idx} out of range for layer {layer.name}")
-    slice_2d = kernel_perm[:, :, depth_idx, in_idx, filter_idx]
-    h, w = slice_2d.shape
-    if h != 3:
-        slice_2d = np.repeat(slice_2d, 3, axis=0)
-    if w != 3:
-        slice_2d = np.repeat(slice_2d, 3, axis=1)
-    slice_2d = slice_2d[:3, :3]
-    return slice_2d
+    if in_idx >= in_ch:
+        in_idx = 0
+
+    if btype == "spatial":
+        slice_2d = kernel[:, :, 0, in_idx, filter_idx]
+    elif btype == "polar":
+        slice_2d = kernel[0, 0, :, in_idx, filter_idx].reshape(1, -1)
+    elif btype == "joint":
+        depth_idx = depth_idx % max(1, kD)
+        slice_2d = kernel[depth_idx, :, :, in_idx, filter_idx]
+    else:
+        depth_idx = depth_idx % max(1, kD)
+        slice_2d = kernel[depth_idx, :, :, in_idx, filter_idx]
+
+    print(
+        "[kernel viz]",
+        layer.name,
+        "kernel shape:",
+        kernel.shape,
+        "slice shape:",
+        slice_2d.shape,
+    )
+    return np.asarray(slice_2d)
 
 
 def save_filter_heatmap_combo(

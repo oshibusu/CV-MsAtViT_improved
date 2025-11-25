@@ -127,30 +127,50 @@ def visualize_kernels_for_branch(
         kernel = kernel.astype(np.complex64)
     print(f"[kernels] {layer.name} kernel shape: {kernel.shape}")
     kD, kH, kW, in_ch, out_ch = kernel.shape
-    spatial_axes = [i for i, size in enumerate((kD, kH, kW)) if size == 3]
-    if len(spatial_axes) < 2:
-        raise ValueError(
-            f"Layer {layer.name} does not have two spatial axes of size 3; shape={kernel.shape}"
-        )
-    spatial_axes = spatial_axes[:2]
-    depth_axis = [i for i in range(3) if i not in spatial_axes][0]
-    perm = spatial_axes + [depth_axis, 3, 4]
-    kernel_perm = np.transpose(kernel, axes=perm)
-    depth_len = kernel_perm.shape[2]
+
+    def branch_type(name: str) -> str:
+        if "spatial_conv3d" in name:
+            return "spatial"
+        if "polar_conv3d" in name:
+            return "polar"
+        if "joint_conv3d" in name:
+            return "joint"
+        return "other"
+
+    btype = branch_type(layer.name)
+
     for oc in filter_indices:
-        if oc >= kernel_perm.shape[-1]:
+        if oc >= out_ch:
             continue
-        for ic in range(kernel_perm.shape[-2]):
-            for depth in range(depth_len):
-                slice_2d = kernel_perm[:, :, depth, ic, oc]
-                if slice_2d.shape != (3, 3):
-                    slice_2d = np.reshape(slice_2d, (3, 3))
-                title = f"{layer.name} | filter {oc} | in {ic} | depth {depth}"
+        for ic in range(in_ch):
+            if btype == "spatial":
+                slices = [(0, kernel[:, :, 0, ic, oc])]
+            elif btype == "polar":
+                row = kernel[0, 0, :, ic, oc]
+                slices = [(0, row.reshape(1, -1))]
+            elif btype == "joint":
+                slices = [(d, kernel[d, :, :, ic, oc]) for d in range(kD)]
+            else:
+                slices = [(d, kernel[d, :, :, ic, oc]) for d in range(kD)]
+
+            for depth_idx, slice_2d in slices:
+                slice_2d = np.asarray(slice_2d)
+                print(
+                    "[kernel viz]",
+                    layer.name,
+                    "kernel shape:",
+                    kernel.shape,
+                    "slice shape:",
+                    slice_2d.shape,
+                )
+                title = (
+                    f"{layer.name} | filter {oc} | in {ic} | depth {depth_idx}"
+                )
                 outfile = (
                     save_dir
                     / layer.name
                     / f"filter{oc:02d}"
-                    / f"in{ic:02d}_depth{depth:02d}.png"
+                    / f"in{ic:02d}_depth{depth_idx:02d}.png"
                 )
                 save_complex_panel(slice_2d, title, outfile)
 
