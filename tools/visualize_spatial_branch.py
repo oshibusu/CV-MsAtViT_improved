@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 from Load_Data import load_data
-from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet, cart_gelu, cart_relu_simple
+from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet, cart_gelu
 from cvnn.activations import cart_relu, cart_sigmoid, softmax_real_with_abs
 from cvnn.activations import softmax_real_with_abs as cvnn_softmax
 
@@ -132,8 +132,7 @@ def main():
     args = parse_args()
     custom_objects = {"cart_gelu": cart_gelu,
                        "cart_relu": cart_relu,
-                       "cart_relu_simple": cart_relu_simple,
-                       "cart_sigmoid": cart_sigmoid,
+                                              "cart_sigmoid": cart_sigmoid,
                        "softmax_real_with_abs": cvnn_softmax}
     model = tf.keras.models.load_model(args.ckpt, compile=False, custom_objects=custom_objects)
     out_dir = ensure_dir(Path(args.output))
