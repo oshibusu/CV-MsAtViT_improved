@@ -81,11 +81,19 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
         kernel = kernel.astype(np.complex64)
     print(f"[heatmap kernels] {layer.name} kernel shape: {kernel.shape}")
     kD, kH, kW, in_ch, out_ch = kernel.shape
-    spatial_axes = [i for i, size in enumerate((kD, kH, kW)) if size == 3]
-    if len(spatial_axes) < 2:
-        raise ValueError(f"Layer {layer.name} lacks two spatial axes of size 3")
-    spatial_axes = spatial_axes[:2]
-    depth_axis = [i for i in range(3) if i not in spatial_axes][0]
+    sizes = (kD, kH, kW)
+    spatial_axes = [i for i, size in enumerate(sizes) if size == 3]
+    if len(spatial_axes) >= 2:
+        spatial_axes = spatial_axes[:2]
+    elif len(spatial_axes) == 1:
+        # use the single axis with size 3 and pick one of the remaining axes (size 1) as pseudo spatial
+        other = next(i for i in range(3) if i != spatial_axes[0])
+        spatial_axes = [spatial_axes[0], other]
+    else:
+        raise ValueError(
+            f"Layer {layer.name} lacks an axis of size 3 to visualize; shape={kernel.shape}"
+        )
+    depth_axis = next(i for i in range(3) if i not in spatial_axes)
     perm = spatial_axes + [depth_axis, 3, 4]
     kernel_perm = np.transpose(kernel, axes=perm)
     depth_len = kernel_perm.shape[2]
@@ -96,8 +104,12 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
     if filter_idx >= kernel_perm.shape[4]:
         raise ValueError(f"Filter index {filter_idx} out of range for layer {layer.name}")
     slice_2d = kernel_perm[:, :, depth_idx, in_idx, filter_idx]
-    if slice_2d.shape != (3, 3):
-        slice_2d = np.reshape(slice_2d, (3, 3))
+    h, w = slice_2d.shape
+    if h != 3:
+        slice_2d = np.repeat(slice_2d, 3, axis=0)
+    if w != 3:
+        slice_2d = np.repeat(slice_2d, 3, axis=1)
+    slice_2d = slice_2d[:3, :3]
     return slice_2d
 
 
