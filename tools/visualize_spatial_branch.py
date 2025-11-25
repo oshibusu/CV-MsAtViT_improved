@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 from Load_Data import load_data
-from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet
+from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet, cart_gelu
 
 SPATIAL_LAYER_NAMES = [
     "spatial_conv3d_block1",
@@ -128,7 +128,8 @@ def visualize_feature_maps(model: tf.keras.Model, samples: np.ndarray, labels: n
 
 def main():
     args = parse_args()
-    model = tf.keras.models.load_model(args.ckpt, compile=False)
+    custom_objects = {"cart_gelu": cart_gelu}
+    model = tf.keras.models.load_model(args.ckpt, compile=False, custom_objects=custom_objects)
     out_dir = ensure_dir(Path(args.output))
     visualize_kernels(model, out_dir)
     samples, labels = load_samples(args)
