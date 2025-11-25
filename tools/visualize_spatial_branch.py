@@ -14,6 +14,7 @@ from Load_Data import load_data
 from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet, cart_gelu
 from cvnn.activations import cart_relu, cart_sigmoid, softmax_real_with_abs
 from cvnn.activations import softmax_real_with_abs as cvnn_softmax
+from model_factory import build_msatvit
 
 SPATIAL_LAYER_NAMES = [
     "spatial_conv3d_block1",
@@ -26,7 +27,7 @@ def parse_args():
     p.add_argument("--dataset", default="FL_T", help="Dataset key used during training")
     p.add_argument("--window-size", type=int, default=15, help="Sliding window size")
     p.add_argument("--test-ratio", type=float, default=0.99, help="Train/test split ratio")
-    p.add_argument("--ckpt", default="ckpt/CV_MsAtViT_saved", help="Path to SavedModel directory")
+    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to model weights")
     p.add_argument("--output", default="results/analysis/spatial_branch", help="Base directory for figures")
     p.add_argument("--samples", type=int, default=4, help="Number of training patches to visualize")
     return p.parse_args()
@@ -130,14 +131,16 @@ def visualize_feature_maps(model: tf.keras.Model, samples: np.ndarray, labels: n
 
 def main():
     args = parse_args()
-    custom_objects = {"cart_gelu": cart_gelu,
-                       "cart_relu": cart_relu,
-                                              "cart_sigmoid": cart_sigmoid,
-                       "softmax_real_with_abs": cvnn_softmax}
-    model = tf.keras.models.load_model(args.ckpt, compile=False, custom_objects=custom_objects)
+    samples, labels = load_samples(args)
+    input_shape = samples.shape[1:]
+    model = build_msatvit(
+        input_shape=input_shape,
+        dataset=args.dataset,
+        window_size=args.window_size,
+    )
+    model.load_weights(args.weights)
     out_dir = ensure_dir(Path(args.output))
     visualize_kernels(model, out_dir)
-    samples, labels = load_samples(args)
     visualize_feature_maps(model, samples, labels, out_dir)
     print(f"Saved visualizations to {out_dir}")
 
