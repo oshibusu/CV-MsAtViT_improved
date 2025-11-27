@@ -49,20 +49,25 @@ def verify_logic():
         print("Unexpected: Layer does not have split weights?")
         return
 
+    # Wrap in a model to enable save_weights
+    model = tf.keras.Sequential([layer])
+    model.build((None, 10, 10, 10, 1))
+
     # 3. Save weights to H5
     h5_path = "temp_test_weights.h5"
-    layer.save_weights(h5_path)
+    model.save_weights(h5_path)
     print(f"Saved weights to {h5_path}")
     
-    # 4. Load weights into a NEW layer
+    # 4. Load weights into a NEW layer/model
     layer2 = ComplexConv3D(
         filters=2,
         kernel_size=(3, 3, 1),
         input_shape=(10, 10, 10, 1),
         dtype=np.complex64
     )
-    layer2.build((None, 10, 10, 10, 1))
-    layer2.load_weights(h5_path)
+    model2 = tf.keras.Sequential([layer2])
+    model2.build((None, 10, 10, 10, 1))
+    model2.load_weights(h5_path)
     print("Loaded weights into new layer.")
     
     # 5. Get weights from new layer
