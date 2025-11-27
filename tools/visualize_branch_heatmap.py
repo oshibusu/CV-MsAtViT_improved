@@ -78,7 +78,14 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
     weights = layer.get_weights()
     if not weights:
         raise RuntimeError(f"Layer {layer.name} has no weights")
-    kernel = weights[0]
+    
+    # Check if weights are split into real/imag parts (common in cvnn)
+    if len(weights) >= 2 and weights[0].shape == weights[1].shape:
+        # Assume weights[0] is real and weights[1] is imag
+        kernel = weights[0] + 1j * weights[1]
+    else:
+        kernel = weights[0]
+
     if not np.iscomplexobj(kernel):
         kernel = kernel.astype(np.complex64)
     print(f"[heatmap kernels] {layer.name} kernel shape: {kernel.shape}")

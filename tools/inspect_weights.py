@@ -12,14 +12,18 @@ def inspect_weights(weights_path):
                     print(f"  Shape: {obj.shape}")
                     print(f"  Dtype: {obj.dtype}")
                     data = obj[:]
+                    data = obj[:]
                     if np.iscomplexobj(data):
                         print(f"  Complex: Yes")
                         print(f"  Max Real: {np.max(np.real(data))}")
                         print(f"  Max Imag: {np.max(np.imag(data))}")
                     else:
                         print(f"  Complex: No")
-                        # Check if it might be stored as real/imag separate channels or something
-                        pass
+                        print(f"  Min: {np.min(data)}")
+                        print(f"  Max: {np.max(data)}")
+                        print(f"  Mean: {np.mean(data)}")
+                        if "kernel_i" in name or "bias_i" in name:
+                            print(f"  Non-zero count: {np.count_nonzero(data)}")
 
             f.visititems(print_attrs)
     except Exception as e:
