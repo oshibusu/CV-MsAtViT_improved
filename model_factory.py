@@ -212,14 +212,6 @@ def build_msatvit(
 from cvnn_fix import FixedComplexBatchNormalization
 from CoordAttention import CoordAtt_cmplx, ComplexSplit
 
-def load_saved_msatvit(saved_model_dir: str):
-    if not tf.io.gfile.exists(saved_model_dir):
-        raise FileNotFoundError(f"SavedModel directory not found: {saved_model_dir}")
-    return tf.keras.models.load_model(
-        saved_model_dir,
-        compile=False,
-        custom_objects=CUSTOM_OBJECTS,
-    )
 CUSTOM_OBJECTS = {
     "ComplexConv2D": ComplexConv2D,
     "ComplexConv3D": ComplexConv3D,
@@ -227,8 +219,21 @@ CUSTOM_OBJECTS = {
     "ComplexDropout": ComplexDropout,
     "ComplexFlatten": ComplexFlatten,
     "ComplexAvgPooling2D": ComplexAvgPooling2D,
-    "ComplexBatchNormalization": FixedComplexBatchNormalization,
+    "ComplexBatchNormalization": ComplexBatchNormalization,
     "cart_gelu": cart_gelu,
     "CoordAtt_cmplx": CoordAtt_cmplx,
     "ComplexSplit": ComplexSplit,
 }
+
+# Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError
+LOADING_CUSTOM_OBJECTS = CUSTOM_OBJECTS.copy()
+LOADING_CUSTOM_OBJECTS["ComplexBatchNormalization"] = FixedComplexBatchNormalization
+
+def load_saved_msatvit(saved_model_dir: str):
+    if not tf.io.gfile.exists(saved_model_dir):
+        raise FileNotFoundError(f"SavedModel directory not found: {saved_model_dir}")
+    return tf.keras.models.load_model(
+        saved_model_dir,
+        compile=False,
+        custom_objects=LOADING_CUSTOM_OBJECTS,
+    )
