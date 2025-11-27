@@ -209,6 +209,8 @@ def build_msatvit(
     return model
 
 
+from cvnn_fix import FixedComplexBatchNormalization
+
 def load_saved_msatvit(saved_model_dir: str):
     if not tf.io.gfile.exists(saved_model_dir):
         raise FileNotFoundError(f"SavedModel directory not found: {saved_model_dir}")
@@ -224,7 +226,7 @@ CUSTOM_OBJECTS = {
     "ComplexDropout": ComplexDropout,
     "ComplexFlatten": ComplexFlatten,
     "ComplexAvgPooling2D": ComplexAvgPooling2D,
-    "ComplexBatchNormalization": ComplexBatchNormalization,
+    "ComplexBatchNormalization": FixedComplexBatchNormalization,
     "cart_gelu": cart_gelu,
     "CoordAtt_cmplx": CoordAtt_cmplx,
 }
