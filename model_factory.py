@@ -210,6 +210,7 @@ def build_msatvit(
 
 
 from cvnn_fix import FixedComplexBatchNormalization
+from CoordAttention import CoordAtt_cmplx, ComplexSplit
 
 def load_saved_msatvit(saved_model_dir: str):
     if not tf.io.gfile.exists(saved_model_dir):
@@ -229,4 +230,5 @@ CUSTOM_OBJECTS = {
     "ComplexBatchNormalization": FixedComplexBatchNormalization,
     "cart_gelu": cart_gelu,
     "CoordAtt_cmplx": CoordAtt_cmplx,
+    "ComplexSplit": ComplexSplit,
 }

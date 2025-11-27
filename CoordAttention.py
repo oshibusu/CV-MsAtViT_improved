@@ -7,6 +7,24 @@ from keras import backend as K
 import tensorflow as tf
 
 
+class ComplexSplit(tf.keras.layers.Layer):
+    def __init__(self, num_or_size_splits, axis=0, **kwargs):
+        super(ComplexSplit, self).__init__(**kwargs)
+        self.num_or_size_splits = num_or_size_splits
+        self.axis = axis
+
+    def call(self, inputs):
+        return tf.split(inputs, num_or_size_splits=self.num_or_size_splits, axis=self.axis)
+
+    def get_config(self):
+        config = super(ComplexSplit, self).get_config()
+        config.update({
+            "num_or_size_splits": self.num_or_size_splits,
+            "axis": self.axis,
+        })
+        return config
+
+
 def CoordAtt_cmplx(x, reduction = 8):
 
     def coord_act(x):
@@ -24,7 +42,9 @@ def CoordAtt_cmplx(x, reduction = 8):
     y = ComplexConv2D(filters=mip, kernel_size=(1, 1), strides=(1, 1), padding='valid')(y)
     y = ComplexBatchNormalization(trainable=False)(y)
     y = coord_act(y)
-    x_h, x_w = Lambda(tf.split, arguments={'axis': 1, 'num_or_size_splits': [h, w]})(y)
+    
+    x_h, x_w = ComplexSplit(num_or_size_splits=[h, w], axis=1)(y)
+    
     x_w = K.permute_dimensions(x_w, [0, 2, 1, 3])
     a_h = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation="cart_sigmoid")(x_h)
     a_w = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation="cart_sigmoid")(x_w)
