@@ -31,8 +31,6 @@ def parse_args():
     p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file")
     p.add_argument("--output", default="results/analysis/spatial_branch", help="Base directory for figures")
     p.add_argument("--samples", type=int, default=4, help="#patches for feature-map visualization")
-    p.add_argument("--top-k", type=int, default=3, help="#filters to select per branch")
-    p.add_argument("--selection-batch-size", type=int, default=128, help="Batch size for filter scoring")
     p.add_argument(
         "--feature-layers",
         default="spatial_conv3d_block1",
@@ -91,27 +89,6 @@ def load_training_split(args):
         raise RuntimeError("split produced zero training samples")
     return X_train, y_train
 
-
-def select_top_filters(
-    model: tf.keras.Model,
-    layer_name: str,
-    data: np.ndarray,
-    batch_size: int,
-    top_k: int,
-) -> np.ndarray:
-    layer = model.get_layer(layer_name)
-    sub_model = tf.keras.Model(inputs=model.input, outputs=layer.output)
-    scores_accum: List[np.ndarray] = []
-    for start in range(0, data.shape[0], batch_size):
-        batch = data[start : start + batch_size]
-        feat = sub_model(batch, training=False)
-        amp = tf.abs(feat)
-        reduce_axes = tuple(range(1, len(amp.shape) - 1))
-        s_batch = tf.reduce_max(amp, axis=reduce_axes)  # (B, C_out)
-        scores_accum.append(s_batch.numpy())
-    scores = np.concatenate(scores_accum, axis=0).mean(axis=0)
-    top_indices = np.argsort(scores)[::-1][:top_k]
-    return top_indices
 
 
 def visualize_kernels_for_branch(
@@ -228,21 +205,16 @@ def main():
 
     out_dir = ensure_dir(Path(args.output))
 
-    print("Selecting top filters per branch...")
+    print("Visualizing kernels for all filters per branch...")
     branch_filters: Dict[str, np.ndarray] = {}
     for layer_name in BRANCH_LAYERS:
-        top_idx = select_top_filters(
-            model,
-            layer_name,
-            X_train,
-            batch_size=args.selection_batch_size,
-            top_k=args.top_k,
-        )
-        branch_filters[layer_name] = top_idx
-        print(f"Top filters for {layer_name}: {top_idx.tolist()}")
+        layer = model.get_layer(layer_name)
+        all_indices = np.arange(layer.filters)
+        branch_filters[layer_name] = all_indices
+        print(f"Processing {layer_name} filters: {all_indices.tolist()}")
         visualize_kernels_for_branch(
-            model.get_layer(layer_name),
-            top_idx,
+            layer,
+            all_indices.tolist(),
             out_dir / "kernels",
         )
 
