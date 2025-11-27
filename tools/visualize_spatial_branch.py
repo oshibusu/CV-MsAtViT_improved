@@ -14,7 +14,7 @@ import tensorflow as tf
 
 from Load_Data import load_data
 from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet
-from model_factory import build_msatvit
+from model_factory import build_msatvit, load_saved_msatvit
 
 BRANCH_LAYERS = [
     "spatial_conv3d_block1",
@@ -28,7 +28,8 @@ def parse_args():
     p.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF)")
     p.add_argument("--window-size", type=int, default=15, help="Patch window size")
     p.add_argument("--test-ratio", type=float, default=0.99, help="Train/test split ratio")
-    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file")
+    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file (fallback)")
+    p.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model", help="Path to SavedModel directory")
     p.add_argument("--output", default="results/analysis/spatial_branch", help="Base directory for figures")
     p.add_argument("--samples", type=int, default=4, help="#patches for feature-map visualization")
     p.add_argument(
@@ -197,13 +198,17 @@ def main():
     samples = X_train[:sample_count]
     sample_labels = y_train[:sample_count]
 
-    print("Rebuilding model and loading weights...")
-    model = build_msatvit(
-        input_shape=X_train.shape[1:],
-        dataset=args.dataset,
-        window_size=args.window_size,
-    )
-    model.load_weights(args.weights)
+    if args.saved_model and os.path.isdir(args.saved_model):
+        print(f"Loading SavedModel from {args.saved_model} ...")
+        model = load_saved_msatvit(args.saved_model)
+    else:
+        print("SavedModel not found. Rebuilding model and loading weights...")
+        model = build_msatvit(
+            input_shape=X_train.shape[1:],
+            dataset=args.dataset,
+            window_size=args.window_size,
+        )
+        model.load_weights(args.weights)
 
     out_dir = ensure_dir(Path(args.output))
 

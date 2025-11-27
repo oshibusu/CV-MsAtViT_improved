@@ -8,6 +8,8 @@ from cvnn.layers import (
     ComplexDense,
     ComplexDropout,
     ComplexFlatten,
+    ComplexAvgPooling2D,
+    ComplexBatchNormalization,
 )
 from SAR_utils import cart_gelu, num_classes
 from CoordAttention import CoordAtt_cmplx
@@ -205,3 +207,24 @@ def build_msatvit(
         metrics=["accuracy"],
     )
     return model
+
+
+def load_saved_msatvit(saved_model_dir: str):
+    if not tf.io.gfile.exists(saved_model_dir):
+        raise FileNotFoundError(f"SavedModel directory not found: {saved_model_dir}")
+    return tf.keras.models.load_model(
+        saved_model_dir,
+        compile=False,
+        custom_objects=CUSTOM_OBJECTS,
+    )
+CUSTOM_OBJECTS = {
+    "ComplexConv2D": ComplexConv2D,
+    "ComplexConv3D": ComplexConv3D,
+    "ComplexDense": ComplexDense,
+    "ComplexDropout": ComplexDropout,
+    "ComplexFlatten": ComplexFlatten,
+    "ComplexAvgPooling2D": ComplexAvgPooling2D,
+    "ComplexBatchNormalization": ComplexBatchNormalization,
+    "cart_gelu": cart_gelu,
+    "CoordAtt_cmplx": CoordAtt_cmplx,
+}

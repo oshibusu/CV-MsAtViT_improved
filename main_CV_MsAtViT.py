@@ -114,6 +114,10 @@ def main():
     model.save_weights(weights_path)
     print("Weights saved to", weights_path)
 
+    saved_model_dir = os.path.join(ckpt_dir, "CV_MsAtViT_saved_model")
+    model.save(saved_model_dir, include_optimizer=False)
+    print("SavedModel exported to", saved_model_dir)
+
 
 if __name__ == "__main__":
     main()

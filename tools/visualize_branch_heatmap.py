@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate per-branch heatmaps for selected filters."""
 import argparse
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -13,7 +14,7 @@ import tensorflow as tf
 
 from Load_Data import load_data
 from SAR_utils import Standardize_data, padWithZeros
-from model_factory import build_msatvit
+from model_factory import build_msatvit, load_saved_msatvit
 
 DEFAULT_BRANCHES: Dict[str, List[int]] = {
     "spatial_conv3d_block1": list(range(8)),
@@ -26,7 +27,8 @@ def parse_args():
     p = argparse.ArgumentParser(description="Branch heatmap generator")
     p.add_argument("--dataset", default="SF", help="Dataset identifier (e.g., SF)")
     p.add_argument("--window-size", type=int, default=15, help="Patch window size")
-    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file")
+    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file (fallback)")
+    p.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model", help="Path to SavedModel directory")
     p.add_argument("--output", default="results/analysis/heatmaps", help="Output directory")
     p.add_argument("--batch-size", type=int, default=128, help="Batch size for inference")
     return p.parse_args()
@@ -217,12 +219,17 @@ def main():
     x_all, centers = extract_patches_with_centers(data, gt, args.window_size)
     print(f"Total patches: {x_all.shape[0]}")
 
-    model = build_msatvit(
-        input_shape=x_all.shape[1:],
-        dataset=args.dataset,
-        window_size=args.window_size,
-    )
-    model.load_weights(args.weights)
+    if args.saved_model and os.path.isdir(args.saved_model):
+        print(f"Loading SavedModel from {args.saved_model} ...")
+        model = load_saved_msatvit(args.saved_model)
+    else:
+        print("SavedModel not found. Rebuilding and loading weights...")
+        model = build_msatvit(
+            input_shape=x_all.shape[1:],
+            dataset=args.dataset,
+            window_size=args.window_size,
+        )
+        model.load_weights(args.weights)
 
     out_dir = ensure_dir(Path(args.output))
     for branch_name, filters in DEFAULT_BRANCHES.items():

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Debug complex-valued components: kernels and feature maps."""
 import argparse
+import os
 import numpy as np
 import tensorflow as tf
 
 from Load_Data import load_data
 from SAR_utils import Standardize_data, createImageCubes, splitTrainTestSet
-from model_factory import build_msatvit
+from model_factory import build_msatvit, load_saved_msatvit
 
 BRANCH_LAYERS = [
     "spatial_conv3d_block1",
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("--window-size", type=int, default=15)
     parser.add_argument("--test-ratio", type=float, default=0.99)
     parser.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5")
+    parser.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model")
     parser.add_argument("--samples", type=int, default=4)
     args = parser.parse_args()
 
@@ -45,13 +47,16 @@ def main():
           np.max(np.abs(np.real(X_train[..., 3, :])), axis=None),
           np.max(np.abs(np.imag(X_train[..., 3, :])), axis=None))
 
-    print("[2] Building model and loading weights ...")
-    model = build_msatvit(
-        input_shape=X_train.shape[1:],
-        dataset=args.dataset,
-        window_size=args.window_size,
-    )
-    model.load_weights(args.weights)
+    print("[2] Loading model ...")
+    if args.saved_model and os.path.isdir(args.saved_model):
+        model = load_saved_msatvit(args.saved_model)
+    else:
+        model = build_msatvit(
+            input_shape=X_train.shape[1:],
+            dataset=args.dataset,
+            window_size=args.window_size,
+        )
+        model.load_weights(args.weights)
 
     print("[3] Kernel stats per branch")
     for layer_name in BRANCH_LAYERS:
