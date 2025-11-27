@@ -115,6 +115,8 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
         kernel.shape,
         "slice shape:",
         slice_2d.shape,
+        "max imaginary:",
+        float(np.abs(np.imag(slice_2d)).max()),
     )
     return np.asarray(slice_2d)
 

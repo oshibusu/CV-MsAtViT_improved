@@ -139,6 +139,8 @@ def visualize_kernels_for_branch(
                     kernel.shape,
                     "slice shape:",
                     slice_2d.shape,
+                    "max imaginary:",
+                    float(np.abs(np.imag(slice_2d)).max()),
                 )
                 title = (
                     f"{layer.name} | filter {oc} | in {ic} | depth {depth_idx}"
