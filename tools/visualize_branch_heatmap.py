@@ -143,17 +143,21 @@ def save_filter_heatmap_combo(
     gs = fig.add_gridspec(2, 3)
     titles = ["Re", "Im", "|z|", "arg(z)"]
     values = [
-        normalize(np.real(kernel_slice)),
-        normalize(np.imag(kernel_slice)),
-        normalize(np.abs(kernel_slice)),
+        np.real(kernel_slice),
+        np.imag(kernel_slice),
+        np.abs(kernel_slice),
         np.angle(kernel_slice),
     ]
     cmaps = ["gray", "gray", "gray", "twilight"]
     for i in range(4):
         ax = fig.add_subplot(gs[i // 2, i % 2])
-        ax.imshow(values[i], cmap=cmaps[i], vmin=None if i < 3 else -np.pi, vmax=None if i < 3 else np.pi)
+        # Use raw values, let imshow auto-scale
+        im_sub = ax.imshow(values[i], cmap=cmaps[i], vmin=None if i < 3 else -np.pi, vmax=None if i < 3 else np.pi)
         ax.set_title(titles[i])
         ax.axis("off")
+        # Add colorbar for each kernel subplot
+        fig.colorbar(im_sub, ax=ax, fraction=0.046, pad=0.04)
+
     ax_heat = fig.add_subplot(gs[:, 2])
     im = ax_heat.imshow(heatmap_norm, cmap="hot", vmin=0.0, vmax=1.0)
     ax_heat.set_title("Response heatmap")

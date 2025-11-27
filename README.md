@@ -34,3 +34,37 @@ To quantitatively measure the proposed CV-MsAtViT model, three evaluation metric
 }
 
 Feel free to contact me on: mqalkhatib@ieee.org
+
+# Troubleshooting & Fixes
+
+During the deployment and testing of this model, several issues were encountered and resolved. Below is a summary of the errors and their fixes.
+
+## 1. `TypeError` in `ComplexBatchNormalization`
+**Error:**
+When loading the model, `cvnn.layers.ComplexBatchNormalization` threw a `TypeError: The real and imag components have incorrect types: complex64 complex64. They must be consistent, and one of [tf.float32, tf.float64]`.
+This was caused by `tf.complex` expecting float arguments, but the initializers returning complex values.
+
+**Fix:**
+- Created `cvnn_fix.py` containing `ForceFloatInitializer` and `FixedComplexBatchNormalization`.
+- `ForceFloatInitializer` wraps Keras initializers to ensure they return `float32` (or `float64`) even if a complex dtype is requested.
+- `FixedComplexBatchNormalization` applies this wrapper to its internal initializers.
+- **Important:** This fix is applied **ONLY** during `load_saved_msatvit` (in `model_factory.py`) to bypass the loading error. The model is still built and trained using the standard `ComplexBatchNormalization` to ensure correct complex weight handling.
+
+## 2. `TypeError: 'str' object is not callable` (Lambda Layer Serialization)
+**Error:**
+The `CoordAtt_cmplx` function used a `Lambda` layer with `tf.split`. `Lambda` layers often fail to serialize/deserialize correctly in `SavedModel` format, leading to errors when loading the model.
+
+**Fix:**
+- Replaced the `Lambda` layer with a custom Keras layer `ComplexSplit` defined in `CoordAttention.py`.
+- This custom layer implements `get_config` and `from_config`, allowing it to be correctly saved and loaded.
+
+## 3. Zero Imaginary Parts in Visualization
+**Error:**
+When running `tools/visualize_branch_heatmap.py`, the logs showed `max imaginary: 0.0`, suggesting that the loaded weights had lost their complex nature.
+
+**Fix:**
+- Investigation revealed that `cvnn` layers store real and imaginary parts as separate variables (e.g., `kernel_r`, `kernel_i`).
+- `layer.get_weights()` returns these as separate arrays in the list (e.g., `[kernel_r, kernel_i, bias_r, bias_i]`).
+- The visualization script was only reading `weights[0]` (real part).
+- Updated `tools/visualize_branch_heatmap.py` to detect this split format and reconstruct the complex kernel: `kernel = weights[0] + 1j * weights[1]`.
+- Verified the correctness of this logic using `tools/verify_fix_logic.py`.
