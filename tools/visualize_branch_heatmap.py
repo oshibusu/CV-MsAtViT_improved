@@ -74,7 +74,7 @@ def extract_patches_with_centers(
     return patches, centers
 
 
-def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: int = 0, in_idx: int = 0) -> np.ndarray:
+def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, in_idx: int = 0) -> np.ndarray:
     weights = layer.get_weights()
     if not weights:
         raise RuntimeError(f"Layer {layer.name} has no weights")
@@ -89,85 +89,86 @@ def get_kernel_slice(layer: tf.keras.layers.Layer, filter_idx: int, depth_idx: i
     if not np.iscomplexobj(kernel):
         kernel = kernel.astype(np.complex64)
     print(f"[heatmap kernels] {layer.name} kernel shape: {kernel.shape}")
+    
+    # kernel shape is (H, W, D, In, Out)
+    # We want to return (H, W, D) for the specific filter and input channel
+    
     kD, kH, kW, in_ch, out_ch = kernel.shape
-
-    def branch_type(name: str) -> str:
-        if "spatial_conv3d" in name:
-            return "spatial"
-        if "polar_conv3d" in name:
-            return "polar"
-        if "joint_conv3d" in name:
-            return "joint"
-        return "other"
-
-    btype = branch_type(layer.name)
     if filter_idx >= out_ch:
         raise ValueError(f"Filter index {filter_idx} out of range for layer {layer.name}")
     if in_idx >= in_ch:
         in_idx = 0
 
-    if btype == "spatial":
-        slice_2d = kernel[:, :, 0, in_idx, filter_idx]
-    elif btype == "polar":
-        slice_2d = kernel[0, 0, :, in_idx, filter_idx].reshape(1, -1)
-    elif btype == "joint":
-        depth_idx = depth_idx % max(1, kD)
-        slice_2d = kernel[depth_idx, :, :, in_idx, filter_idx]
-    else:
-        depth_idx = depth_idx % max(1, kD)
-        slice_2d = kernel[depth_idx, :, :, in_idx, filter_idx]
+    # Extract the full 3D kernel for this filter
+    kernel_3d = kernel[:, :, :, in_idx, filter_idx]
 
     print(
         "[kernel viz]",
         layer.name,
         "kernel shape:",
         kernel.shape,
-        "slice shape:",
-        slice_2d.shape,
+        "extracted 3d shape:",
+        kernel_3d.shape,
         "max imaginary:",
-        float(np.abs(np.imag(slice_2d)).max()),
+        float(np.abs(np.imag(kernel_3d)).max()),
     )
-    return np.asarray(slice_2d)
+    return np.asarray(kernel_3d)
 
 
 def save_filter_heatmap_combo(
     branch_name: str,
     filter_idx: int,
-    kernel_slice: np.ndarray,
+    kernel_3d: np.ndarray,
     heatmap: np.ndarray,
     out_dir: Path,
 ):
-    heatmap_dir = ensure_dir(out_dir / branch_name)
-    heatmap_norm = normalize(heatmap)
-    fig = plt.figure(figsize=(10, 5))
-    gs = fig.add_gridspec(2, 3)
-    titles = ["Re", "Im", "|z|", "arg(z)"]
-    values = [
-        np.real(kernel_slice),
-        np.imag(kernel_slice),
-        np.abs(kernel_slice),
-        np.angle(kernel_slice),
-    ]
-    cmaps = ["gray", "gray", "gray", "twilight"]
-    for i in range(4):
-        ax = fig.add_subplot(gs[i // 2, i % 2])
-        # Use raw values, let imshow auto-scale
-        im_sub = ax.imshow(values[i], cmap=cmaps[i], vmin=None if i < 3 else -np.pi, vmax=None if i < 3 else np.pi)
-        ax.set_title(titles[i])
-        ax.axis("off")
-        # Add colorbar for each kernel subplot
-        fig.colorbar(im_sub, ax=ax, fraction=0.046, pad=0.04)
+    # kernel_3d shape: (H, W, D)
+    H, W, D = kernel_3d.shape
+    
+    # Create a directory for the filter to hold depth slices
+    filter_dir = ensure_dir(out_dir / branch_name / f"sample{filter_idx:02d}") # Using sampleXX to match previous structure or just filterXX?
+    # Previous code put combo_filterXX.png in branch_name/
+    # Let's put them in branch_name/filterXX/
+    filter_dir = ensure_dir(out_dir / branch_name / f"filter{filter_idx:02d}")
 
-    ax_heat = fig.add_subplot(gs[:, 2])
-    im = ax_heat.imshow(heatmap_norm, cmap="hot", vmin=0.0, vmax=1.0)
-    ax_heat.set_title("Response heatmap")
-    ax_heat.axis("off")
-    fig.colorbar(im, ax=ax_heat, fraction=0.046, pad=0.04)
-    fig.suptitle(f"{branch_name} filter {filter_idx}")
-    combo_file = heatmap_dir / f"combo_filter{filter_idx:02d}.png"
-    fig.tight_layout()
-    fig.savefig(combo_file, dpi=200)
-    plt.close(fig)
+    heatmap_norm = normalize(heatmap)
+    
+    for d in range(D):
+        kernel_slice = kernel_3d[:, :, d]
+        
+        fig = plt.figure(figsize=(10, 5))
+        gs = fig.add_gridspec(2, 3)
+        titles = ["Re", "Im", "|z|", "arg(z)"]
+        values = [
+            np.real(kernel_slice),
+            np.imag(kernel_slice),
+            np.abs(kernel_slice),
+            np.angle(kernel_slice),
+        ]
+        cmaps = ["gray", "gray", "gray", "twilight"]
+        for i in range(4):
+            ax = fig.add_subplot(gs[i // 2, i % 2])
+            # Use raw values, let imshow auto-scale
+            im_sub = ax.imshow(values[i], cmap=cmaps[i], vmin=None if i < 3 else -np.pi, vmax=None if i < 3 else np.pi)
+            ax.set_title(titles[i])
+            ax.axis("off")
+            # Add colorbar for each kernel subplot
+            fig.colorbar(im_sub, ax=ax, fraction=0.046, pad=0.04)
+
+        ax_heat = fig.add_subplot(gs[:, 2])
+        im = ax_heat.imshow(heatmap_norm, cmap="hot", vmin=0.0, vmax=1.0)
+        ax_heat.set_title("Response heatmap")
+        ax_heat.axis("off")
+        fig.colorbar(im, ax=ax_heat, fraction=0.046, pad=0.04)
+        
+        # Add depth info to title
+        fig.suptitle(f"{branch_name} filter {filter_idx} depth {d}")
+        
+        # Save as combo_depthXX.png
+        combo_file = filter_dir / f"depth{d:02d}.png"
+        fig.tight_layout()
+        fig.savefig(combo_file, dpi=200)
+        plt.close(fig)
 
 
 def generate_branch_heatmaps(
