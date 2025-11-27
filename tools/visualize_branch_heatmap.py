@@ -16,9 +16,9 @@ from SAR_utils import Standardize_data, padWithZeros
 from model_factory import build_msatvit
 
 DEFAULT_BRANCHES: Dict[str, List[int]] = {
-    "spatial_conv3d_block1": [0, 2, 5],
-    "polar_conv3d_block1": [1, 4, 6],
-    "joint_conv3d_block1": [0, 3, 7],
+    "spatial_conv3d_block1": list(range(8)),
+    "polar_conv3d_block1": list(range(8)),
+    "joint_conv3d_block1": list(range(8)),
 }
 
 
