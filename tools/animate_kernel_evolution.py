@@ -94,7 +94,7 @@ def parse_args():
         default=0,
         help="Number of patches to use when estimating heatmaps (<=0 for all)",
     )
-    p.add_argument("--topk", type=int, default=5, help="Number of strongest response locations to annotate")
+    p.add_argument("--topk", type=int, default=15, help="Number of strongest response locations to annotate")
     p.add_argument(
         "--pauli-path",
         default=None,
