@@ -1,3 +1,4 @@
+import argparse
 import os
 import scipy.io as sio
 import numpy as np
@@ -12,6 +13,22 @@ from model_factory import build_msatvit
 def _dataset_tag(name: str) -> str:
     """Make dataset name filesystem-friendly for checkpoints."""
     return name.replace("/", "_").replace("\\", "_")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train and export CV-MsAtViT")
+    parser.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF, ober)")
+    parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
+    parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
+    parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
+    parser.add_argument("--epochs", type=int, default=100, help="Maximum training epochs")
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help="Override learning rate (default: 1e-4 for ober else 1e-3)",
+    )
+    return parser.parse_args()
 
 
 def predict_by_batching(model, input_tensor, batch_size):
@@ -32,14 +49,14 @@ def predict_by_batching(model, input_tensor, batch_size):
 
 
 def main():
-    # Configuration (edit as needed)
-    dataset = "FL_T"
+    args = parse_args()
+    dataset = args.dataset
     dataset_tag = _dataset_tag(dataset)
-    window_size = 15
-    test_ratio = 0.99
+    window_size = args.window_size
+    test_ratio = args.test_ratio
 
     data, gt = load_data(dataset)
-    lr = 0.0001 if dataset == "ober" else 0.001
+    lr = args.learning_rate if args.learning_rate is not None else (0.0001 if dataset == "ober" else 0.001)
 
     data = Standardize_data(data)
 
@@ -84,9 +101,9 @@ def main():
     model.fit(
         X_train,
         y_train,
-        batch_size=128,
+        batch_size=args.batch_size,
         verbose=1,
-        epochs=100,
+        epochs=args.epochs,
         shuffle=True,
         callbacks=[early_stopper, epoch_checkpoint],
     )
