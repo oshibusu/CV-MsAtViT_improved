@@ -17,11 +17,13 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
+import tensorflow as tf
 
 from Load_Data import load_data
-from SAR_utils import Standardize_data, createImageCubes
+from SAR_utils import Standardize_data, createImageCubes, padWithZeros
 from model_factory import build_msatvit
 
 BRANCH_LAYERS = [
@@ -30,9 +32,42 @@ BRANCH_LAYERS = [
     "joint_conv3d_block1",
 ]
 
+PAULI_PATHS = {
+    "FL_T": Path("Datasets/Flevoland/T3/PauliRGB.bmp"),
+    "SF": Path("Datasets/san_francisco/T3/PauliRGB.bmp"),
+    "ober": Path("Datasets/Oberpfaffenhofen/ESAR_Oberpfaffenhofen_T6/PauliRGB_T1.bmp"),
+}
+
 
 def dataset_tag(name: str) -> str:
     return name.replace("/", "_").replace("\\", "_")
+
+
+def resolve_pauli_path(dataset: str, override: Optional[str]) -> Optional[Path]:
+    if override:
+        candidate = Path(override)
+        if candidate.exists():
+            return candidate
+    default = PAULI_PATHS.get(dataset)
+    if default is None:
+        return None
+    if default.exists():
+        return default
+    if default.is_dir():
+        bmp = sorted(default.glob("PauliRGB*.bmp"))
+        return bmp[0] if bmp else None
+    return None
+
+
+def load_pauli_array(dataset: str, override: Optional[str], target_shape: Tuple[int, int]) -> np.ndarray:
+    path = resolve_pauli_path(dataset, override)
+    if path and path.exists():
+        img = Image.open(path).convert("RGB")
+    else:
+        img = Image.new("RGB", (target_shape[1], target_shape[0]), color=(0, 0, 0))
+    if img.size != (target_shape[1], target_shape[0]):
+        img = ImageOps.fit(img, (target_shape[1], target_shape[0]), method=Image.BILINEAR)
+    return np.asarray(img)
 
 
 def parse_args():
@@ -51,6 +86,19 @@ def parse_args():
         "--branches",
         default="",
         help="Comma-separated subset of branches to animate (default: all)",
+    )
+    p.add_argument("--heatmap-batch-size", type=int, default=128, help="Batch size when computing feature responses")
+    p.add_argument(
+        "--heatmap-sample-limit",
+        type=int,
+        default=2000,
+        help="Number of patches to use when estimating heatmaps (None for all)",
+    )
+    p.add_argument("--topk", type=int, default=5, help="Number of strongest response locations to annotate")
+    p.add_argument(
+        "--pauli-path",
+        default=None,
+        help="Optional override for Pauli RGB image path",
     )
     return p.parse_args()
 
@@ -81,6 +129,31 @@ def ensure_input_shape(dataset: str, window_size: int):
     return shape
 
 
+def extract_patches_with_centers(
+    data: np.ndarray,
+    gt: np.ndarray,
+    window_size: int,
+    remove_zero_labels: bool = True,
+) -> Tuple[np.ndarray, np.ndarray]:
+    margin = int((window_size - 1) / 2)
+    padded = padWithZeros(data, margin=margin)
+    H, W, _ = data.shape
+    patches = []
+    centers = []
+    for r in range(margin, margin + H):
+        for c in range(margin, margin + W):
+            label = gt[r - margin, c - margin]
+            if remove_zero_labels and label == 0:
+                continue
+            patch = padded[r - margin : r + margin + 1, c - margin : c + margin + 1]
+            patches.append(patch)
+            centers.append((r - margin, c - margin))
+    patches = np.asarray(patches, dtype=np.complex64)
+    centers = np.asarray(centers, dtype=np.int32)
+    patches = np.expand_dims(patches, axis=4)
+    return patches, centers
+
+
 def combine_complex_kernel(weights: List[np.ndarray]) -> np.ndarray:
     if not weights:
         raise ValueError("Layer has no weights")
@@ -92,25 +165,86 @@ def combine_complex_kernel(weights: List[np.ndarray]) -> np.ndarray:
     return kernel
 
 
-def render_frame(matrix: np.ndarray, title: str) -> Image.Image:
+def normalize_heatmap(arr: np.ndarray) -> np.ndarray:
+    arr = np.asarray(arr)
+    if arr.size == 0:
+        return arr
+    vmin = float(arr.min())
+    vmax = float(arr.max())
+    if np.isclose(vmin, vmax):
+        return np.zeros_like(arr)
+    return (arr - vmin) / (vmax - vmin)
+
+
+def find_top_coords(heatmap: np.ndarray, k: int) -> List[Tuple[int, int]]:
+    if k <= 0:
+        return []
+    flat = heatmap.reshape(-1)
+    count = min(k, flat.size)
+    if count == 0:
+        return []
+    idx = np.argpartition(flat, -count)[-count:]
+    idx = idx[np.argsort(flat[idx])[::-1]]
+    H, W = heatmap.shape
+    coords = [(int(i // W), int(i % W)) for i in idx]
+    return coords
+
+
+def render_frame_with_heatmap(
+    matrix: np.ndarray,
+    heatmap: np.ndarray,
+    pauli_array: np.ndarray,
+    top_coords: List[Tuple[int, int]],
+    title: str,
+) -> Image.Image:
     real = np.real(matrix)
     imag = np.imag(matrix)
     magnitude = np.abs(matrix)
     phase = np.angle(matrix)
+    heatmap_norm = normalize_heatmap(heatmap)
 
-    fig, axes = plt.subplots(2, 2, figsize=(6, 6))
-    axes = axes.ravel()
+    fig = plt.figure(figsize=(14, 6))
+    gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 1.2, 1.2])
+    kernel_axes = [
+        fig.add_subplot(gs[0, 0]),
+        fig.add_subplot(gs[0, 1]),
+        fig.add_subplot(gs[1, 0]),
+        fig.add_subplot(gs[1, 1]),
+    ]
     plots = [
         (real, "Re", "gray", None, None),
         (imag, "Im", "gray", None, None),
         (magnitude, "|z|", "gray", None, None),
         (phase, "arg(z)", "twilight", -np.pi, np.pi),
     ]
-    for ax, (data, subtitle, cmap, vmin, vmax) in zip(axes, plots):
+    for ax, (data, subtitle, cmap, vmin, vmax) in zip(kernel_axes, plots):
         img = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
         ax.set_title(subtitle)
         ax.axis("off")
-        fig.colorbar(img, ax=ax, fraction=0.046, pad=0.04)
+        fig.colorbar(img, ax=ax, fraction=0.046, pad=0.02)
+
+    ax_heat = fig.add_subplot(gs[0, 2:])
+    heat_img = ax_heat.imshow(heatmap_norm, cmap="hot", vmin=0.0, vmax=1.0)
+    ax_heat.set_title("Response heatmap")
+    ax_heat.axis("off")
+    fig.colorbar(heat_img, ax=ax_heat, fraction=0.046, pad=0.02)
+
+    ax_pauli = fig.add_subplot(gs[1, 2:])
+    ax_pauli.imshow(pauli_array)
+    ax_pauli.set_title("Pauli RGB")
+    ax_pauli.axis("off")
+
+    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(top_coords))))
+    for idx, (y, x) in enumerate(top_coords):
+        color = colors[idx % len(colors)] if len(top_coords) > 0 else "cyan"
+        circle_heat = Circle((x, y), radius=3, fill=False, edgecolor=color, linewidth=2)
+        ax_heat.add_patch(circle_heat)
+        ax_heat.text(x, y, str(idx + 1), color=color, fontsize=10, ha="center", va="center")
+
+        circle_pauli = Circle((x, y), radius=6, fill=False, edgecolor=color, linewidth=2)
+        ax_pauli.add_patch(circle_pauli)
+        ax_pauli.text(x, y, str(idx + 1), color=color, fontsize=10, ha="center", va="center")
+
     fig.suptitle(title)
     fig.tight_layout()
     buf = io.BytesIO()
@@ -133,10 +267,44 @@ def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
     )
 
 
+def compute_branch_heatmaps(
+    branch_model: tf.keras.Model,
+    patches: np.ndarray,
+    centers: np.ndarray,
+    image_shape: Tuple[int, int],
+    batch_size: int,
+) -> np.ndarray:
+    if patches.size == 0:
+        filter_count = int(branch_model.output_shape[-1])
+        return np.zeros((filter_count,) + image_shape, dtype=np.float32)
+    filter_count = int(branch_model.output_shape[-1])
+    heatmaps = np.zeros((filter_count,) + image_shape, dtype=np.float32)
+    counts = np.zeros(image_shape, dtype=np.float32)
+    for start in range(0, patches.shape[0], batch_size):
+        batch = patches[start : start + batch_size]
+        feat = branch_model(batch, training=False)
+        amp = tf.abs(feat).numpy()
+        reduce_axes = tuple(range(1, amp.ndim - 1))
+        summary = amp.max(axis=reduce_axes)
+        for bi in range(summary.shape[0]):
+            idx = start + bi
+            if idx >= centers.shape[0]:
+                break
+            y, x = centers[idx]
+            counts[y, x] += 1
+            heatmaps[:, y, x] += summary[bi]
+    counts[counts == 0] = 1.0
+    heatmaps = heatmaps / counts
+    return heatmaps
+
+
 def animate_branch(
     branch_name: str,
     kernels: List[np.ndarray],
+    heatmaps: List[np.ndarray],
     epoch_labels: List[str],
+    pauli_array: np.ndarray,
+    topk: int,
     frame_duration: int,
     out_root: Path,
 ):
@@ -147,14 +315,24 @@ def animate_branch(
         for in_idx in range(in_ch):
             for depth_idx in range(kW):
                 frames = []
-                for kernel, label in zip(kernels, epoch_labels):
+                for (kernel, label, heatmap_stack) in zip(kernels, epoch_labels, heatmaps):
                     vol = kernel[:, :, :, in_idx, out_idx]
                     depth = depth_idx % vol.shape[2]
                     matrix = vol[:, :, depth]
+                    filter_heatmap = heatmap_stack[out_idx]
+                    top_coords = find_top_coords(filter_heatmap, topk)
                     title = (
                         f"{branch_name} | filter {out_idx} | in {in_idx} | depth {depth} | epoch {label}"
                     )
-                    frames.append(render_frame(matrix, title))
+                    frames.append(
+                        render_frame_with_heatmap(
+                            matrix,
+                            filter_heatmap,
+                            pauli_array,
+                            top_coords,
+                            title,
+                        )
+                    )
                 out_path = (
                     out_root
                     / branch_name
@@ -183,10 +361,25 @@ def main():
     else:
         branches = BRANCH_LAYERS
 
-    input_shape = ensure_input_shape(args.dataset, args.window_size)
+    data, gt = load_data(args.dataset)
+    data = Standardize_data(data)
+    patches, centers = extract_patches_with_centers(data, gt, args.window_size)
+    if args.heatmap_sample_limit is not None and args.heatmap_sample_limit > 0:
+        limit = min(args.heatmap_sample_limit, patches.shape[0])
+        patches = patches[:limit]
+        centers = centers[:limit]
+    input_shape = patches.shape[1:]
+    image_shape = gt.shape
+    pauli_array = load_pauli_array(args.dataset, args.pauli_path, image_shape)
+
     model = build_msatvit(input_shape=input_shape, dataset=args.dataset, window_size=args.window_size)
+    branch_models = {
+        b: tf.keras.Model(inputs=model.input, outputs=model.get_layer(b).output)
+        for b in branches
+    }
 
     kernel_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
+    heatmap_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
 
     for wf, label in weights:
         print(f"Loading weights {wf}")
@@ -194,6 +387,14 @@ def main():
         for branch in branches:
             layer = model.get_layer(branch)
             kernel_history[branch].append(combine_complex_kernel(layer.get_weights()))
+            heatmaps = compute_branch_heatmaps(
+                branch_models[branch],
+                patches,
+                centers,
+                image_shape,
+                args.heatmap_batch_size,
+            )
+            heatmap_history[branch].append(heatmaps)
 
     out_root = (
         Path(args.output_dir)
@@ -205,7 +406,10 @@ def main():
         animate_branch(
             branch,
             kernel_history[branch],
+            heatmap_history[branch],
             [label for _, label in weights],
+            pauli_array,
+            args.topk,
             args.frame_duration,
             out_root,
         )
