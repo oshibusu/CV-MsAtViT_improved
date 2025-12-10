@@ -27,11 +27,27 @@ def parse_args():
     p = argparse.ArgumentParser(description="Branch heatmap generator")
     p.add_argument("--dataset", default="SF", help="Dataset identifier (e.g., SF)")
     p.add_argument("--window-size", type=int, default=15, help="Patch window size")
-    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file (fallback)")
-    p.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model", help="Path to SavedModel directory")
-    p.add_argument("--output", default="results/analysis/heatmaps", help="Output directory")
+    p.add_argument(
+        "--weights",
+        default=None,
+        help="Path to weight file (fallback). Default derives from dataset name.",
+    )
+    p.add_argument(
+        "--saved-model",
+        default=None,
+        help="Path to SavedModel directory. Default derives from dataset name.",
+    )
+    p.add_argument(
+        "--output",
+        default="results/analysis",
+        help="Base output directory. Dataset-specific heatmap folders are auto-created.",
+    )
     p.add_argument("--batch-size", type=int, default=128, help="Batch size for inference")
     return p.parse_args()
+
+
+def _dataset_tag(name: str) -> str:
+    return name.replace("/", "_").replace("\\", "_")
 
 
 def ensure_dir(path: Path) -> Path:
@@ -225,15 +241,21 @@ def generate_branch_heatmaps(
 
 def main():
     args = parse_args()
+    dataset_tag = _dataset_tag(args.dataset)
+    default_weights = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_weights.h5")
+    default_saved_model = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_saved_model")
+    weights_path = args.weights or default_weights
+    saved_model_dir = args.saved_model or default_saved_model
+
     print("Loading dataset", args.dataset)
     data, gt = load_data(args.dataset)
     data = Standardize_data(data)
     x_all, centers = extract_patches_with_centers(data, gt, args.window_size)
     print(f"Total patches: {x_all.shape[0]}")
 
-    if args.saved_model and os.path.isdir(args.saved_model):
-        print(f"Loading SavedModel from {args.saved_model} ...")
-        model = load_saved_msatvit(args.saved_model)
+    if saved_model_dir and os.path.isdir(saved_model_dir):
+        print(f"Loading SavedModel from {saved_model_dir} ...")
+        model = load_saved_msatvit(saved_model_dir)
     else:
         print("SavedModel not found. Rebuilding and loading weights...")
         model = build_msatvit(
@@ -241,9 +263,10 @@ def main():
             dataset=args.dataset,
             window_size=args.window_size,
         )
-        model.load_weights(args.weights)
+        model.load_weights(weights_path)
 
-    out_dir = ensure_dir(Path(args.output))
+    dataset_out_root = ensure_dir(Path(args.output) / dataset_tag)
+    out_dir = ensure_dir(dataset_out_root / "heatmaps")
     for branch_name, filters in DEFAULT_BRANCHES.items():
         print(f"Generating heatmaps for {branch_name} -> filters {filters}")
         generate_branch_heatmaps(

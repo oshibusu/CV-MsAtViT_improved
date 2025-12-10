@@ -28,9 +28,21 @@ def parse_args():
     p.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF)")
     p.add_argument("--window-size", type=int, default=15, help="Patch window size")
     p.add_argument("--test-ratio", type=float, default=0.99, help="Train/test split ratio")
-    p.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5", help="Path to weight file (fallback)")
-    p.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model", help="Path to SavedModel directory")
-    p.add_argument("--output", default="results/analysis/spatial_branch", help="Base directory for figures")
+    p.add_argument(
+        "--weights",
+        default=None,
+        help="Path to weight file (fallback). Default derives from dataset name.",
+    )
+    p.add_argument(
+        "--saved-model",
+        default=None,
+        help="Path to SavedModel directory. Default derives from dataset name.",
+    )
+    p.add_argument(
+        "--output",
+        default="results/analysis",
+        help="Base directory for figures. Dataset-specific subfolders are auto-created.",
+    )
     p.add_argument("--samples", type=int, default=4, help="#patches for feature-map visualization")
     p.add_argument(
         "--feature-layers",
@@ -38,6 +50,10 @@ def parse_args():
         help="Comma-separated layer names for feature maps",
     )
     return p.parse_args()
+
+
+def _dataset_tag(name: str) -> str:
+    return name.replace("/", "_").replace("\\", "_")
 
 
 def ensure_dir(path: Path) -> Path:
@@ -192,15 +208,21 @@ def visualize_feature_maps(
 
 def main():
     args = parse_args()
+    dataset_tag = _dataset_tag(args.dataset)
+    default_weights = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_weights.h5")
+    default_saved_model = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_saved_model")
+    weights_path = args.weights or default_weights
+    saved_model_dir = args.saved_model or default_saved_model
+
     print("Loading training split...")
     X_train, y_train = load_training_split(args)
     sample_count = min(args.samples, X_train.shape[0])
     samples = X_train[:sample_count]
     sample_labels = y_train[:sample_count]
 
-    if args.saved_model and os.path.isdir(args.saved_model):
-        print(f"Loading SavedModel from {args.saved_model} ...")
-        model = load_saved_msatvit(args.saved_model)
+    if saved_model_dir and os.path.isdir(saved_model_dir):
+        print(f"Loading SavedModel from {saved_model_dir} ...")
+        model = load_saved_msatvit(saved_model_dir)
     else:
         print("SavedModel not found. Rebuilding model and loading weights...")
         model = build_msatvit(
@@ -208,9 +230,10 @@ def main():
             dataset=args.dataset,
             window_size=args.window_size,
         )
-        model.load_weights(args.weights)
+        model.load_weights(weights_path)
 
-    out_dir = ensure_dir(Path(args.output))
+    dataset_out = ensure_dir(Path(args.output) / dataset_tag)
+    out_dir = ensure_dir(dataset_out / "spatial_branch")
 
     print("Visualizing kernels for all filters per branch...")
     branch_filters: Dict[str, np.ndarray] = {}

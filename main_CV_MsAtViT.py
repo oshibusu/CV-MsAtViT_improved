@@ -9,6 +9,11 @@ from net_flops import net_flops
 from model_factory import build_msatvit
 
 
+def _dataset_tag(name: str) -> str:
+    """Make dataset name filesystem-friendly for checkpoints."""
+    return name.replace("/", "_").replace("\\", "_")
+
+
 def predict_by_batching(model, input_tensor, batch_size):
     """Run inference by chunking large tensors into smaller batches."""
     num_samples = input_tensor.shape[0]
@@ -29,6 +34,7 @@ def predict_by_batching(model, input_tensor, batch_size):
 def main():
     # Configuration (edit as needed)
     dataset = "FL_T"
+    dataset_tag = _dataset_tag(dataset)
     window_size = 15
     test_ratio = 0.99
 
@@ -59,6 +65,18 @@ def main():
     model.summary()
     net_flops(model)
 
+    ckpt_dir = os.path.join("ckpt")
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    epoch_ckpt_path = os.path.join(
+        ckpt_dir, f"CV_MsAtViT_{dataset_tag}_epoch{{epoch:03d}}.weights.h5"
+    )
+    epoch_checkpoint = keras.callbacks.ModelCheckpoint(
+        filepath=epoch_ckpt_path,
+        save_weights_only=True,
+        save_freq="epoch",
+    )
+
     early_stopper = keras.callbacks.EarlyStopping(
         monitor="accuracy", patience=10, restore_best_weights=True
     )
@@ -70,7 +88,7 @@ def main():
         verbose=1,
         epochs=100,
         shuffle=True,
-        callbacks=[early_stopper],
+        callbacks=[early_stopper, epoch_checkpoint],
     )
 
     Y_pred_test = predict_by_batching(model, X_test, max(1, X_test.shape[0] // 16))
@@ -108,13 +126,11 @@ def main():
     sio.savemat(name + ".mat", {name: new_map})
 
     # Save weights for downstream visualization
-    ckpt_dir = os.path.join("ckpt")
-    os.makedirs(ckpt_dir, exist_ok=True)
-    weights_path = os.path.join(ckpt_dir, "CV_MsAtViT_weights.h5")
+    weights_path = os.path.join(ckpt_dir, f"CV_MsAtViT_{dataset_tag}_weights.h5")
     model.save_weights(weights_path)
     print("Weights saved to", weights_path)
 
-    saved_model_dir = os.path.join(ckpt_dir, "CV_MsAtViT_saved_model")
+    saved_model_dir = os.path.join(ckpt_dir, f"CV_MsAtViT_{dataset_tag}_saved_model")
     model.save(saved_model_dir, include_optimizer=False)
     print("SavedModel exported to", saved_model_dir)
 

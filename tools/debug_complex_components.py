@@ -26,15 +26,32 @@ def summarize_tensor(name: str, tensor: tf.Tensor):
     )
 
 
+def _dataset_tag(name: str) -> str:
+    return name.replace("/", "_").replace("\\", "_")
+
+
 def main():
     parser = argparse.ArgumentParser("Inspect complex kernels and feature maps")
     parser.add_argument("--dataset", default="FL_T")
     parser.add_argument("--window-size", type=int, default=15)
     parser.add_argument("--test-ratio", type=float, default=0.99)
-    parser.add_argument("--weights", default="ckpt/CV_MsAtViT_weights.h5")
-    parser.add_argument("--saved-model", default="ckpt/CV_MsAtViT_saved_model")
+    parser.add_argument(
+        "--weights",
+        default=None,
+        help="Path to weight file (fallback). Default derives from dataset name.",
+    )
+    parser.add_argument(
+        "--saved-model",
+        default=None,
+        help="Path to SavedModel directory. Default derives from dataset name.",
+    )
     parser.add_argument("--samples", type=int, default=4)
     args = parser.parse_args()
+    dataset_tag = _dataset_tag(args.dataset)
+    default_weights = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_weights.h5")
+    default_saved_model = os.path.join("ckpt", f"CV_MsAtViT_{dataset_tag}_saved_model")
+    weights_path = args.weights or default_weights
+    saved_model_dir = args.saved_model or default_saved_model
 
     print("[1] Loading data ...")
     data, gt = load_data(args.dataset)
@@ -48,15 +65,15 @@ def main():
           np.max(np.abs(np.imag(X_train[..., 3, :])), axis=None))
 
     print("[2] Loading model ...")
-    if args.saved_model and os.path.isdir(args.saved_model):
-        model = load_saved_msatvit(args.saved_model)
+    if saved_model_dir and os.path.isdir(saved_model_dir):
+        model = load_saved_msatvit(saved_model_dir)
     else:
         model = build_msatvit(
             input_shape=X_train.shape[1:],
             dataset=args.dataset,
             window_size=args.window_size,
         )
-        model.load_weights(args.weights)
+        model.load_weights(weights_path)
 
     print("[3] Kernel stats per branch")
     for layer_name in BRANCH_LAYERS:
