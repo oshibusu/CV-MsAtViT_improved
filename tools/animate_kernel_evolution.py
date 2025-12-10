@@ -91,14 +91,29 @@ def parse_args():
     p.add_argument(
         "--heatmap-sample-limit",
         type=int,
-        default=2000,
-        help="Number of patches to use when estimating heatmaps (None for all)",
+        default=0,
+        help="Number of patches to use when estimating heatmaps (<=0 for all)",
     )
     p.add_argument("--topk", type=int, default=5, help="Number of strongest response locations to annotate")
     p.add_argument(
         "--pauli-path",
         default=None,
         help="Optional override for Pauli RGB image path",
+    )
+    p.add_argument(
+        "--filters",
+        default="",
+        help="Filter indices to visualize (e.g., '0-3,5'). Empty for all",
+    )
+    p.add_argument(
+        "--in-indices",
+        default="",
+        help="Input channel indices to visualize (e.g., '0,2'). Empty for all",
+    )
+    p.add_argument(
+        "--depth-indices",
+        default="",
+        help="Depth indices/slices to visualize (e.g., '0-2'). Empty for all",
     )
     return p.parse_args()
 
@@ -190,6 +205,36 @@ def find_top_coords(heatmap: np.ndarray, k: int) -> List[Tuple[int, int]]:
     return coords
 
 
+def parse_index_spec(spec: str, max_len: int) -> List[int]:
+    if not spec:
+        return list(range(max_len))
+    indices = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            try:
+                start = int(start_s)
+                end = int(end_s)
+            except ValueError:
+                continue
+            if start > end:
+                start, end = end, start
+            for i in range(start, end + 1):
+                if 0 <= i < max_len:
+                    indices.add(i)
+        else:
+            try:
+                val = int(part)
+            except ValueError:
+                continue
+            if 0 <= val < max_len:
+                indices.add(val)
+    return sorted(indices)
+
+
 def render_frame_with_heatmap(
     matrix: np.ndarray,
     heatmap: np.ndarray,
@@ -239,11 +284,9 @@ def render_frame_with_heatmap(
         color = colors[idx % len(colors)] if len(top_coords) > 0 else "cyan"
         circle_heat = Circle((x, y), radius=3, fill=False, edgecolor=color, linewidth=2)
         ax_heat.add_patch(circle_heat)
-        ax_heat.text(x, y, str(idx + 1), color=color, fontsize=10, ha="center", va="center")
 
         circle_pauli = Circle((x, y), radius=6, fill=False, edgecolor=color, linewidth=2)
         ax_pauli.add_patch(circle_pauli)
-        ax_pauli.text(x, y, str(idx + 1), color=color, fontsize=10, ha="center", va="center")
 
     fig.suptitle(title)
     fig.tight_layout()
@@ -305,15 +348,23 @@ def animate_branch(
     epoch_labels: List[str],
     pauli_array: np.ndarray,
     topk: int,
+    filter_spec: str,
+    in_spec: str,
+    depth_spec: str,
     frame_duration: int,
     out_root: Path,
 ):
     if not kernels:
         return
     kD, kH, kW, in_ch, out_ch = kernels[0].shape
-    for out_idx in range(out_ch):
-        for in_idx in range(in_ch):
-            for depth_idx in range(kW):
+    filter_indices = parse_index_spec(filter_spec, out_ch)
+    if not filter_indices:
+        return
+    in_indices = parse_index_spec(in_spec, in_ch)
+    depth_indices = parse_index_spec(depth_spec, kW)
+    for out_idx in filter_indices:
+        for in_idx in in_indices:
+            for depth_idx in depth_indices:
                 frames = []
                 for (kernel, label, heatmap_stack) in zip(kernels, epoch_labels, heatmaps):
                     vol = kernel[:, :, :, in_idx, out_idx]
@@ -410,6 +461,9 @@ def main():
             [label for _, label in weights],
             pauli_array,
             args.topk,
+            args.filters,
+            args.in_indices,
+            args.depth_indices,
             args.frame_duration,
             out_root,
         )
