@@ -145,16 +145,6 @@ def collect_weight_files(pattern: str, limit: Optional[int]) -> List[Tuple[str, 
     return labeled
 
 
-def ensure_input_shape(dataset: str, window_size: int):
-    data, gt = load_data(dataset)
-    data = Standardize_data(data)
-    X_coh, _ = createImageCubes(data, gt, window_size)
-    X_coh = np.expand_dims(X_coh, axis=4)
-    shape = X_coh.shape[1:]
-    del X_coh
-    return shape
-
-
 def extract_patches_with_centers(
     data: np.ndarray,
     gt: np.ndarray,
@@ -189,6 +179,11 @@ def combine_complex_kernel(weights: List[np.ndarray]) -> np.ndarray:
     if not np.iscomplexobj(kernel):
         kernel = kernel.astype(np.complex64)
     return kernel
+
+
+def prepare_heatmap_inputs(args):
+    patches, centers, input_shape, image_shape, pauli_array = prepare_heatmap_inputs(args)
+    return patches, centers, input_shape, image_shape, pauli_array
 
 
 def normalize_heatmap(arr: np.ndarray) -> np.ndarray:
@@ -319,33 +314,6 @@ def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
         duration=duration,
         loop=0,
     )
-
-
-def render_kernel_only(matrix: np.ndarray, title: str) -> Image.Image:
-    real = np.real(matrix)
-    imag = np.imag(matrix)
-    magnitude = np.abs(matrix)
-    phase = np.angle(matrix)
-    fig, axes = plt.subplots(2, 2, figsize=(6, 6))
-    axes = axes.ravel()
-    plots = [
-        (real, "Re", "gray", None, None),
-        (imag, "Im", "gray", None, None),
-        (magnitude, "|z|", "gray", None, None),
-        (phase, "arg(z)", "twilight", -np.pi, np.pi),
-    ]
-    for ax, (data, subtitle, cmap, vmin, vmax) in zip(axes, plots):
-        img = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
-        ax.set_title(subtitle)
-        ax.axis("off")
-        fig.colorbar(img, ax=ax, fraction=0.046, pad=0.02)
-    fig.suptitle(title)
-    fig.tight_layout()
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150)
-    plt.close(fig)
-    buf.seek(0)
-    return Image.open(buf).convert("RGB")
 
 
 def compute_branch_heatmaps(
@@ -519,19 +487,51 @@ def run_batch_mode(args, tag):
     )
     if not trace_root.exists():
         raise SystemExit(f"Batch trace directory not found: {trace_root}")
-    batch_dirs = sorted(
-        [d for d in trace_root.glob("epoch*_batch*") if d.is_dir()]
+    snapshot_dirs = sorted(
+        [d for d in trace_root.glob("epoch*_batch*") if d.is_dir()],
+        key=batch_dir_sort_key,
     )
-    if not batch_dirs:
+    if not snapshot_dirs:
         raise SystemExit(f"No batch trace folders under {trace_root}")
 
+    snapshots = collect_batch_snapshots(snapshot_dirs, args.max_epochs)
+    if not snapshots:
+        raise SystemExit("No usable batch weight files found")
+
     branches = [b.strip() for b in args.branches.split(",") if b.strip()]
-    if not branches:
-        branches = [
-            "spatial_conv3d_block1",
-            "polar_conv3d_block1",
-            "joint_conv3d_block1",
-        ]
+    if branches:
+        invalid = [b for b in branches if b not in BRANCH_LAYERS]
+        if invalid:
+            raise SystemExit(f"Unknown branches: {invalid}. Valid: {BRANCH_LAYERS}")
+    else:
+        branches = BRANCH_LAYERS
+
+    patches, centers, input_shape, image_shape, pauli_array = prepare_heatmap_inputs(args)
+    model = build_msatvit(input_shape=input_shape, dataset=args.dataset, window_size=args.window_size)
+    branch_models = {
+        b: tf.keras.Model(inputs=model.input, outputs=model.get_layer(b).output)
+        for b in branches
+    }
+
+    kernel_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
+    heatmap_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
+    labels: List[str] = []
+
+    for weights_path, label in snapshots:
+        print(f"Loading batch weights {weights_path}")
+        model.load_weights(weights_path)
+        for branch in branches:
+            layer = model.get_layer(branch)
+            kernel_history[branch].append(combine_complex_kernel(layer.get_weights()))
+            heatmaps = compute_branch_heatmaps(
+                branch_models[branch],
+                patches,
+                centers,
+                image_shape,
+                args.heatmap_batch_size,
+            )
+            heatmap_history[branch].append(heatmaps)
+        labels.append(label)
 
     out_root = (
         Path(args.output_dir)
@@ -540,104 +540,57 @@ def run_batch_mode(args, tag):
     )
 
     for branch in branches:
-        available = discover_batch_indices(branch, batch_dirs)
-        if available is None:
-            print(f"[warn] No traces found for branch {branch}; skipping")
-            continue
-        filt_indices = intersect_indices(available["filters"], args.filters)
-        in_indices = intersect_indices(available["inputs"], args.in_indices)
-        depth_indices = intersect_indices(available["depths"], args.depth_indices)
-        animate_branch_batches(
+        animate_branch(
             branch,
-            batch_dirs,
-            filt_indices,
-            in_indices,
-            depth_indices,
+            kernel_history[branch],
+            heatmap_history[branch],
+            labels,
+            pauli_array,
+            args.topk,
+            args.filters,
+            args.in_indices,
+            args.depth_indices,
             args.frame_duration,
             out_root,
         )
 
 
-def intersect_indices(available: List[int], spec: str) -> List[int]:
-    if not available:
-        return []
-    requested = parse_index_spec(spec, max(available) + 1) if spec else available
-    return [i for i in requested if i in available]
+def batch_dir_sort_key(path: Path):
+    name = path.name
+    match = re.search(r"batch(\d+)", name)
+    idx = int(match.group(1)) if match else 0
+    pre_flag = 0 if name.endswith("pre") else 1
+    return (idx, pre_flag, name)
 
 
-def discover_batch_indices(branch: str, batch_dirs: List[Path]) -> Optional[Dict[str, List[int]]]:
-    for batch_dir in batch_dirs:
-        branch_dir = batch_dir / branch
-        if not branch_dir.exists():
-            continue
-        filter_dirs = sorted(
-            [d for d in branch_dir.glob("filter*") if d.is_dir()]
-        )
-        if not filter_dirs:
-            continue
-        filters = []
-        inputs = set()
-        depths = set()
-        for fdir in filter_dirs:
-            try:
-                filt_idx = int(fdir.name.replace("filter", ""))
-            except ValueError:
-                continue
-            filters.append(filt_idx)
-            for npy in fdir.glob("in*_depth*.npy"):
-                match = re.search(r"in(\d+)_depth(\d+)", npy.stem)
-                if not match:
-                    continue
-                inputs.add(int(match.group(1)))
-                depths.add(int(match.group(2)))
-        if filters and inputs and depths:
-            return {
-                "filters": sorted(set(filters)),
-                "inputs": sorted(inputs),
-                "depths": sorted(depths),
-            }
+def parse_batch_progress(batch_dir: Path) -> Optional[Dict[str, int]]:
+    log_file = batch_dir / "progress.txt"
+    if not log_file.exists():
+        return None
+    try:
+        text = log_file.read_text().strip()
+        match = re.search(r"start=(\d+),end=(\d+)", text)
+        if match:
+            return {"start": int(match.group(1)), "end": int(match.group(2))}
+    except Exception:
+        return None
     return None
 
-
-def animate_branch_batches(
-    branch_name: str,
-    batch_dirs: List[Path],
-    filters: List[int],
-    inputs: List[int],
-    depths: List[int],
-    frame_duration: int,
-    out_root: Path,
-):
-    if not filters or not inputs or not depths:
-        print(f"[warn] No valid indices for branch {branch_name}; skipping")
-        return
-    for filt_idx in filters:
-        for in_idx in inputs:
-            for depth_idx in depths:
-                frames: List[Image.Image] = []
-                for batch_dir in batch_dirs:
-                    batch_label = batch_dir.name
-                    file_path = (
-                        batch_dir
-                        / branch_name
-                        / f"filter{filt_idx:02d}"
-                        / f"in{in_idx:02d}_depth{depth_idx:02d}.npy"
-                    )
-                    if not file_path.exists():
-                        continue
-                    matrix = np.load(file_path)
-                    title = (
-                        f"{branch_name} | filter {filt_idx} | in {in_idx} | depth {depth_idx} | {batch_label}"
-                    )
-                    frames.append(render_kernel_only(matrix, title))
-                if frames:
-                    out_path = (
-                        out_root
-                        / branch_name
-                        / f"filter{filt_idx:02d}"
-                        / f"in{in_idx:02d}_depth{depth_idx:02d}.gif"
-                    )
-                    save_gif(frames, out_path, frame_duration)
-                    print("Saved", out_path)
+def collect_batch_snapshots(
+    batch_dirs: List[Path], limit: Optional[int]
+) -> List[Tuple[Path, str]]:
+    snapshots: List[Tuple[Path, str]] = []
+    for batch_dir in batch_dirs:
+        weights_path = batch_dir / "weights.h5"
+        if not weights_path.exists():
+            continue
+        progress = parse_batch_progress(batch_dir)
+        label = batch_dir.name
+        if progress:
+            label = f"{label} (patch {progress['start']}-{progress['end']})"
+        snapshots.append((weights_path, label))
+    if limit:
+        snapshots = snapshots[:limit]
+    return snapshots
 if __name__ == "__main__":
     main()

@@ -64,6 +64,8 @@ class BatchTraceCallback(keras.callbacks.Callback):
         filter_spec,
         in_spec,
         depth_spec,
+        batch_size,
+        total_samples,
     ):
         super().__init__()
         self.dataset_tag = dataset_tag
@@ -71,6 +73,8 @@ class BatchTraceCallback(keras.callbacks.Callback):
         self.filter_spec = filter_spec
         self.in_spec = in_spec
         self.depth_spec = depth_spec
+        self.batch_size = batch_size
+        self.total_samples = total_samples
         self.base_dir = os.path.join("ckpt", "batch_traces", dataset_tag)
         self.recording = True
         self.branch_configs = {}
@@ -78,6 +82,11 @@ class BatchTraceCallback(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         os.makedirs(self.base_dir, exist_ok=True)
         self._initialize_branch_configs()
+        self._save_snapshot(
+            os.path.join(self.base_dir, "epoch01_batch0000_pre"),
+            0,
+            0,
+        )
 
     def on_epoch_begin(self, epoch, logs=None):
         if epoch > 0:
@@ -86,8 +95,17 @@ class BatchTraceCallback(keras.callbacks.Callback):
     def on_train_batch_end(self, batch, logs=None):
         if not self.recording:
             return
+        start_idx = batch * self.batch_size
+        end_idx = min(start_idx + self.batch_size, self.total_samples)
         batch_dir = os.path.join(self.base_dir, f"epoch01_batch{batch:04d}")
+        self._save_snapshot(batch_dir, start_idx, end_idx)
+
+    def _save_snapshot(self, batch_dir, start_idx, end_idx):
         os.makedirs(batch_dir, exist_ok=True)
+        with open(os.path.join(batch_dir, "progress.txt"), "w") as f:
+            f.write(f"start={start_idx},end={end_idx}")
+        weights_path = os.path.join(batch_dir, "weights.h5")
+        self.model.save_weights(weights_path)
         for branch, cfg in self.branch_configs.items():
             layer = self.model.get_layer(branch)
             kernel = _combine_complex_kernel(layer.get_weights())
@@ -256,6 +274,8 @@ def main():
                 args.record_filters,
                 args.record_in,
                 args.record_depth,
+                args.batch_size,
+                X_train.shape[0],
             )
             callbacks.append(record_callback)
         else:
