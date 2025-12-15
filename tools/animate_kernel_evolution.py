@@ -182,7 +182,16 @@ def combine_complex_kernel(weights: List[np.ndarray]) -> np.ndarray:
 
 
 def prepare_heatmap_inputs(args):
-    patches, centers, input_shape, image_shape, pauli_array = prepare_heatmap_inputs(args)
+    data, gt = load_data(args.dataset)
+    data = Standardize_data(data)
+    patches, centers = extract_patches_with_centers(data, gt, args.window_size)
+    if args.heatmap_sample_limit is not None and args.heatmap_sample_limit > 0:
+        limit = min(args.heatmap_sample_limit, patches.shape[0])
+        patches = patches[:limit]
+        centers = centers[:limit]
+    input_shape = patches.shape[1:]
+    image_shape = gt.shape
+    pauli_array = load_pauli_array(args.dataset, args.pauli_path, image_shape)
     return patches, centers, input_shape, image_shape, pauli_array
 
 
