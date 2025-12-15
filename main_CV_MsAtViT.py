@@ -15,6 +15,119 @@ def _dataset_tag(name: str) -> str:
     return name.replace("/", "_").replace("\\", "_")
 
 
+def _combine_complex_kernel(weights):
+    if not weights:
+        raise ValueError("Layer has no weights")
+    kernel = weights[0]
+    if len(weights) >= 2 and weights[0].shape == weights[1].shape and not np.iscomplexobj(weights[0]):
+        kernel = weights[0] + 1j * weights[1]
+    if not np.iscomplexobj(kernel):
+        kernel = kernel.astype(np.complex64)
+    return kernel
+
+
+def _parse_index_spec(spec: str, max_len: int):
+    if not spec:
+        return list(range(max_len))
+    indices = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            try:
+                start = int(start_s)
+                end = int(end_s)
+            except ValueError:
+                continue
+            if start > end:
+                start, end = end, start
+            for i in range(start, end + 1):
+                if 0 <= i < max_len:
+                    indices.add(i)
+        else:
+            try:
+                val = int(part)
+            except ValueError:
+                continue
+            if 0 <= val < max_len:
+                indices.add(val)
+    return sorted(indices)
+
+
+class BatchTraceCallback(keras.callbacks.Callback):
+    def __init__(
+        self,
+        dataset_tag,
+        branch_names,
+        filter_spec,
+        in_spec,
+        depth_spec,
+    ):
+        super().__init__()
+        self.dataset_tag = dataset_tag
+        self.branch_names = branch_names
+        self.filter_spec = filter_spec
+        self.in_spec = in_spec
+        self.depth_spec = depth_spec
+        self.base_dir = os.path.join("ckpt", "batch_traces", dataset_tag)
+        self.recording = True
+        self.branch_configs = {}
+
+    def on_train_begin(self, logs=None):
+        os.makedirs(self.base_dir, exist_ok=True)
+        self._initialize_branch_configs()
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch > 0:
+            self.recording = False
+
+    def on_train_batch_end(self, batch, logs=None):
+        if not self.recording:
+            return
+        batch_dir = os.path.join(self.base_dir, f"epoch01_batch{batch:04d}")
+        os.makedirs(batch_dir, exist_ok=True)
+        for branch, cfg in self.branch_configs.items():
+            layer = self.model.get_layer(branch)
+            kernel = _combine_complex_kernel(layer.get_weights())
+            branch_path = os.path.join(batch_dir, branch)
+            os.makedirs(branch_path, exist_ok=True)
+            for filt_idx in cfg["filters"]:
+                if filt_idx >= kernel.shape[-1]:
+                    continue
+                filt_dir = os.path.join(branch_path, f"filter{filt_idx:02d}")
+                os.makedirs(filt_dir, exist_ok=True)
+                for in_idx in cfg["inputs"]:
+                    if in_idx >= kernel.shape[-2]:
+                        continue
+                    vol = kernel[:, :, :, in_idx, filt_idx]
+                    depth_len = vol.shape[2]
+                    for depth_idx in cfg["depths"]:
+                        d = depth_idx % depth_len
+                        slice_2d = vol[:, :, d]
+                        out_path = os.path.join(
+                            filt_dir,
+                            f"in{in_idx:02d}_depth{depth_idx:02d}.npy",
+                        )
+                        np.save(out_path, slice_2d)
+
+    def _initialize_branch_configs(self):
+        if self.branch_configs:
+            return
+        for branch in self.branch_names:
+            layer = self.model.get_layer(branch)
+            kernel = _combine_complex_kernel(layer.get_weights())
+            kD, kH, kW, in_ch, out_ch = kernel.shape
+            filters = _parse_index_spec(self.filter_spec, out_ch)
+            inputs = _parse_index_spec(self.in_spec, in_ch)
+            depths = _parse_index_spec(self.depth_spec, kW)
+            self.branch_configs[branch] = {
+                "filters": filters,
+                "inputs": inputs,
+                "depths": depths,
+            }
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train and export CV-MsAtViT")
     parser.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF, ober)")
@@ -27,6 +140,31 @@ def parse_args():
         type=float,
         default=None,
         help="Override learning rate (default: 1e-4 for ober else 1e-3)",
+    )
+    parser.add_argument(
+        "--record-first-epoch",
+        action="store_true",
+        help="Record per-batch kernels during the first epoch",
+    )
+    parser.add_argument(
+        "--record-branches",
+        default="",
+        help="Comma-separated branch names to record (default: all 3D branches)",
+    )
+    parser.add_argument(
+        "--record-filters",
+        default="",
+        help="Filter indices to record (e.g., '0-3,5'; default all)",
+    )
+    parser.add_argument(
+        "--record-in",
+        default="",
+        help="Input channel indices to record (default all)",
+    )
+    parser.add_argument(
+        "--record-depth",
+        default="",
+        help="Depth indices to record (default all)",
     )
     return parser.parse_args()
 
@@ -98,14 +236,43 @@ def main():
         monitor="accuracy", patience=10, restore_best_weights=True
     )
 
+    callbacks = [early_stopper, epoch_checkpoint]
+
+    if args.record_first_epoch:
+        branch_names = [b.strip() for b in args.record_branches.split(",") if b.strip()]
+        if not branch_names:
+            default_branches = [
+                "spatial_conv3d_block1",
+                "polar_conv3d_block1",
+                "joint_conv3d_block1",
+            ]
+            branch_names = [
+                name for name in default_branches if any(layer.name == name for layer in model.layers)
+            ]
+        if branch_names:
+            record_callback = BatchTraceCallback(
+                dataset_tag,
+                branch_names,
+                args.record_filters,
+                args.record_in,
+                args.record_depth,
+            )
+            callbacks.append(record_callback)
+        else:
+            print("[warn] No matching branches found for recording; skipping batch trace")
+
+    training_epochs = 1 if args.record_first_epoch else args.epochs
+    if args.record_first_epoch and args.epochs > 1:
+        print("[info] record-first-epoch enabled: training will stop after the first epoch")
+
     model.fit(
         X_train,
         y_train,
         batch_size=args.batch_size,
         verbose=1,
-        epochs=args.epochs,
+        epochs=training_epochs,
         shuffle=True,
-        callbacks=[early_stopper, epoch_checkpoint],
+        callbacks=callbacks,
     )
 
     Y_pred_test = predict_by_batching(model, X_test, max(1, X_test.shape[0] // 16))

@@ -115,6 +115,17 @@ def parse_args():
         default="",
         help="Depth indices/slices to visualize (e.g., '0-2'). Empty for all",
     )
+    p.add_argument(
+        "--mode",
+        choices=["epoch", "batch"],
+        default="epoch",
+        help="Visualization mode: epoch checkpoints or recorded batch traces",
+    )
+    p.add_argument(
+        "--batch-trace-dir",
+        default=None,
+        help="Directory containing batch trace outputs (default: ckpt/batch_traces/<dataset>)",
+    )
     return p.parse_args()
 
 
@@ -310,6 +321,33 @@ def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
     )
 
 
+def render_kernel_only(matrix: np.ndarray, title: str) -> Image.Image:
+    real = np.real(matrix)
+    imag = np.imag(matrix)
+    magnitude = np.abs(matrix)
+    phase = np.angle(matrix)
+    fig, axes = plt.subplots(2, 2, figsize=(6, 6))
+    axes = axes.ravel()
+    plots = [
+        (real, "Re", "gray", None, None),
+        (imag, "Im", "gray", None, None),
+        (magnitude, "|z|", "gray", None, None),
+        (phase, "arg(z)", "twilight", -np.pi, np.pi),
+    ]
+    for ax, (data, subtitle, cmap, vmin, vmax) in zip(axes, plots):
+        img = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax.set_title(subtitle)
+        ax.axis("off")
+        fig.colorbar(img, ax=ax, fraction=0.046, pad=0.02)
+    fig.suptitle(title)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
+
 def compute_branch_heatmaps(
     branch_model: tf.keras.Model,
     patches: np.ndarray,
@@ -397,6 +435,10 @@ def animate_branch(
 def main():
     args = parse_args()
     tag = dataset_tag(args.dataset)
+    if args.mode == "batch":
+        run_batch_mode(args, tag)
+        return
+
     pattern = args.weights_pattern or os.path.join("ckpt", f"CV_MsAtViT_{tag}_epoch*.weights.h5")
     weights = collect_weight_files(pattern, args.max_epochs)
     if len(weights) < 2:
@@ -469,5 +511,133 @@ def main():
         )
 
 
+def run_batch_mode(args, tag):
+    trace_root = (
+        Path(args.batch_trace_dir)
+        if args.batch_trace_dir
+        else Path("ckpt") / "batch_traces" / tag
+    )
+    if not trace_root.exists():
+        raise SystemExit(f"Batch trace directory not found: {trace_root}")
+    batch_dirs = sorted(
+        [d for d in trace_root.glob("epoch*_batch*") if d.is_dir()]
+    )
+    if not batch_dirs:
+        raise SystemExit(f"No batch trace folders under {trace_root}")
+
+    branches = [b.strip() for b in args.branches.split(",") if b.strip()]
+    if not branches:
+        branches = [
+            "spatial_conv3d_block1",
+            "polar_conv3d_block1",
+            "joint_conv3d_block1",
+        ]
+
+    out_root = (
+        Path(args.output_dir)
+        if args.output_dir
+        else Path("results/analysis") / tag / "batch_animations"
+    )
+
+    for branch in branches:
+        available = discover_batch_indices(branch, batch_dirs)
+        if available is None:
+            print(f"[warn] No traces found for branch {branch}; skipping")
+            continue
+        filt_indices = intersect_indices(available["filters"], args.filters)
+        in_indices = intersect_indices(available["inputs"], args.in_indices)
+        depth_indices = intersect_indices(available["depths"], args.depth_indices)
+        animate_branch_batches(
+            branch,
+            batch_dirs,
+            filt_indices,
+            in_indices,
+            depth_indices,
+            args.frame_duration,
+            out_root,
+        )
+
+
+def intersect_indices(available: List[int], spec: str) -> List[int]:
+    if not available:
+        return []
+    requested = parse_index_spec(spec, max(available) + 1) if spec else available
+    return [i for i in requested if i in available]
+
+
+def discover_batch_indices(branch: str, batch_dirs: List[Path]) -> Optional[Dict[str, List[int]]]:
+    for batch_dir in batch_dirs:
+        branch_dir = batch_dir / branch
+        if not branch_dir.exists():
+            continue
+        filter_dirs = sorted(
+            [d for d in branch_dir.glob("filter*") if d.is_dir()]
+        )
+        if not filter_dirs:
+            continue
+        filters = []
+        inputs = set()
+        depths = set()
+        for fdir in filter_dirs:
+            try:
+                filt_idx = int(fdir.name.replace("filter", ""))
+            except ValueError:
+                continue
+            filters.append(filt_idx)
+            for npy in fdir.glob("in*_depth*.npy"):
+                match = re.search(r"in(\d+)_depth(\d+)", npy.stem)
+                if not match:
+                    continue
+                inputs.add(int(match.group(1)))
+                depths.add(int(match.group(2)))
+        if filters and inputs and depths:
+            return {
+                "filters": sorted(set(filters)),
+                "inputs": sorted(inputs),
+                "depths": sorted(depths),
+            }
+    return None
+
+
+def animate_branch_batches(
+    branch_name: str,
+    batch_dirs: List[Path],
+    filters: List[int],
+    inputs: List[int],
+    depths: List[int],
+    frame_duration: int,
+    out_root: Path,
+):
+    if not filters or not inputs or not depths:
+        print(f"[warn] No valid indices for branch {branch_name}; skipping")
+        return
+    for filt_idx in filters:
+        for in_idx in inputs:
+            for depth_idx in depths:
+                frames: List[Image.Image] = []
+                for batch_dir in batch_dirs:
+                    batch_label = batch_dir.name
+                    file_path = (
+                        batch_dir
+                        / branch_name
+                        / f"filter{filt_idx:02d}"
+                        / f"in{in_idx:02d}_depth{depth_idx:02d}.npy"
+                    )
+                    if not file_path.exists():
+                        continue
+                    matrix = np.load(file_path)
+                    title = (
+                        f"{branch_name} | filter {filt_idx} | in {in_idx} | depth {depth_idx} | {batch_label}"
+                    )
+                    frames.append(render_kernel_only(matrix, title))
+                if frames:
+                    out_path = (
+                        out_root
+                        / branch_name
+                        / f"filter{filt_idx:02d}"
+                        / f"in{in_idx:02d}_depth{depth_idx:02d}.gif"
+                    )
+                    save_gif(frames, out_path, frame_duration)
+                    print("Saved", out_path)
 if __name__ == "__main__":
     main()
