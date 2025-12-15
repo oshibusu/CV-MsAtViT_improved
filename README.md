@@ -13,6 +13,8 @@ Three PolSAR datasets were utilized to assess the performance of the CV-MsAtViT 
 link to the datasets along their class maps is available at:
 https://mega.nz/folder/WhgT1L4S#PnMttCUpjtwkD8qTEdwZsw
 
+For reference, the San Francisco T3 cube loaded via `Load_Data.py` has a spatial shape of **900 × 1024 pixels** (≈921,600 patches when every pixel is used for inference).
+
 # Requirement
 Python 3.9.18, Tensorflow (and Keras) 2.10.0, cvnn 2.0, Tensorflow Probability 0.18.0
 

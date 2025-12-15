@@ -146,6 +146,33 @@ class BatchTraceCallback(keras.callbacks.Callback):
                 "depths": depths,
             }
 
+def save_training_curve(history, dataset_tag):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    loss = history.history.get("loss", [])
+    acc = history.history.get("accuracy", [])
+    epochs = range(1, len(loss) + 1)
+    plot_dir = os.path.join("results", "plots")
+    os.makedirs(plot_dir, exist_ok=True)
+    plt.figure(figsize=(8, 5))
+    if loss:
+        plt.plot(epochs, loss, label="loss")
+    if acc:
+        plt.plot(epochs, acc, label="accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Value")
+    plt.title(f"Training Curve ({dataset_tag})")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.4)
+    out_path = os.path.join(plot_dir, f"training_curve_{dataset_tag}.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
+    print("Saved training curve to", out_path)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train and export CV-MsAtViT")
     parser.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF, ober)")
@@ -285,7 +312,7 @@ def main():
     if args.record_first_epoch and args.epochs > 1:
         print("[info] record-first-epoch enabled: training will stop after the first epoch")
 
-    model.fit(
+    history = model.fit(
         X_train,
         y_train,
         batch_size=args.batch_size,
@@ -294,6 +321,7 @@ def main():
         shuffle=True,
         callbacks=callbacks,
     )
+    save_training_curve(history, dataset_tag)
 
     Y_pred_test = predict_by_batching(model, X_test, max(1, X_test.shape[0] // 16))
     y_pred_test = np.argmax(Y_pred_test, axis=1)
