@@ -1,4 +1,7 @@
 import argparse
+import csv
+import json
+import math
 import os
 import scipy.io as sio
 import numpy as np
@@ -78,14 +81,23 @@ class BatchTraceCallback(keras.callbacks.Callback):
         self.base_dir = os.path.join("ckpt", "batch_traces", dataset_tag)
         self.recording = True
         self.branch_configs = {}
+        self.csv_path = os.path.join(self.base_dir, "epoch01_batch_metrics.csv")
+        self.csv_file = None
 
     def on_train_begin(self, logs=None):
         os.makedirs(self.base_dir, exist_ok=True)
         self._initialize_branch_configs()
+        os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
+        self.csv_file = open(self.csv_path, "w", newline="")
+        writer = csv.writer(self.csv_file)
+        writer.writerow(["snapshot", "batch_index", "start", "end", "loss", "accuracy"])
+        self.csv_file.flush()
         self._save_snapshot(
             os.path.join(self.base_dir, "epoch01_batch0000_pre"),
             0,
             0,
+            metrics=None,
+            batch_index="pre",
         )
 
     def on_epoch_begin(self, epoch, logs=None):
@@ -98,14 +110,38 @@ class BatchTraceCallback(keras.callbacks.Callback):
         start_idx = batch * self.batch_size
         end_idx = min(start_idx + self.batch_size, self.total_samples)
         batch_dir = os.path.join(self.base_dir, f"epoch01_batch{batch:04d}")
-        self._save_snapshot(batch_dir, start_idx, end_idx)
+        metrics = {
+            "loss": float(logs.get("loss")) if logs and "loss" in logs else None,
+            "accuracy": float(logs.get("accuracy")) if logs and "accuracy" in logs else None,
+        }
+        self._save_snapshot(batch_dir, start_idx, end_idx, metrics=metrics, batch_index=batch)
 
-    def _save_snapshot(self, batch_dir, start_idx, end_idx):
+    def on_train_end(self, logs=None):
+        if self.csv_file:
+            self.csv_file.close()
+
+    def _save_snapshot(self, batch_dir, start_idx, end_idx, metrics=None, batch_index=None):
         os.makedirs(batch_dir, exist_ok=True)
         with open(os.path.join(batch_dir, "progress.txt"), "w") as f:
             f.write(f"start={start_idx},end={end_idx}")
         weights_path = os.path.join(batch_dir, "weights.h5")
         self.model.save_weights(weights_path)
+        metrics_path = os.path.join(batch_dir, "metrics.json")
+        with open(metrics_path, "w") as mf:
+            json.dump(metrics if metrics else {}, mf)
+        if self.csv_file:
+            writer = csv.writer(self.csv_file)
+            writer.writerow(
+                [
+                    os.path.basename(batch_dir),
+                    batch_index,
+                    start_idx,
+                    end_idx,
+                    metrics.get("loss") if metrics else "",
+                    metrics.get("accuracy") if metrics else "",
+                ]
+            )
+            self.csv_file.flush()
         for branch, cfg in self.branch_configs.items():
             layer = self.model.get_layer(branch)
             kernel = _combine_complex_kernel(layer.get_weights())
@@ -171,6 +207,50 @@ def save_training_curve(history, dataset_tag):
     plt.savefig(out_path, dpi=200)
     plt.close()
     print("Saved training curve to", out_path)
+
+
+def save_batch_curve(csv_path, dataset_tag):
+    if not csv_path or not os.path.exists(csv_path):
+        return
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    batch_indices = []
+    losses = []
+    accuracies = []
+    with open(csv_path, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            idx = row["batch_index"]
+            if idx == "pre" or idx == "" or idx is None:
+                continue
+            try:
+                batch_idx = int(idx)
+            except ValueError:
+                continue
+            batch_indices.append(batch_idx)
+            loss = row.get("loss")
+            acc = row.get("accuracy")
+            losses.append(float(loss) if loss not in (None, "") else math.nan)
+            accuracies.append(float(acc) if acc not in (None, "") else math.nan)
+    if not batch_indices:
+        return
+    plot_dir = os.path.join("results", "plots")
+    os.makedirs(plot_dir, exist_ok=True)
+    plt.figure(figsize=(8, 5))
+    plt.plot(batch_indices, losses, label="loss")
+    if any(not math.isnan(a) for a in accuracies):
+        plt.plot(batch_indices, accuracies, label="accuracy")
+    plt.xlabel("Batch (epoch 1)")
+    plt.ylabel("Value")
+    plt.title(f"Batch Curve (epoch 1, {dataset_tag})")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.4)
+    out_path = os.path.join(plot_dir, f"batch_curve_epoch1_{dataset_tag}.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
+    print("Saved batch curve to", out_path)
 
 
 def parse_args():
@@ -283,6 +363,7 @@ def main():
 
     callbacks = [early_stopper, epoch_checkpoint]
 
+    record_callback = None
     if args.record_first_epoch:
         branch_names = [b.strip() for b in args.record_branches.split(",") if b.strip()]
         if not branch_names:
@@ -322,6 +403,8 @@ def main():
         callbacks=callbacks,
     )
     save_training_curve(history, dataset_tag)
+    if record_callback and args.record_first_epoch:
+        save_batch_curve(record_callback.csv_path, dataset_tag)
 
     Y_pred_test = predict_by_batching(model, X_test, max(1, X_test.shape[0] // 16))
     y_pred_test = np.argmax(Y_pred_test, axis=1)

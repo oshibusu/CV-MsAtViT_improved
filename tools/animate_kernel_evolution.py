@@ -3,6 +3,8 @@
 import argparse
 import glob
 import io
+import json
+import math
 import os
 import re
 import sys
@@ -256,6 +258,7 @@ def render_frame_with_heatmap(
     pauli_array: np.ndarray,
     top_coords: List[Tuple[int, int]],
     title: str,
+    subtitle: Optional[str] = None,
 ) -> Image.Image:
     real = np.real(matrix)
     imag = np.imag(matrix)
@@ -303,7 +306,10 @@ def render_frame_with_heatmap(
         circle_pauli = Circle((x, y), radius=6, fill=False, edgecolor=color, linewidth=2)
         ax_pauli.add_patch(circle_pauli)
 
-    fig.suptitle(title)
+    if subtitle:
+        fig.suptitle(f"{title}\n{subtitle}")
+    else:
+        fig.suptitle(title)
     fig.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150)
@@ -368,6 +374,7 @@ def animate_branch(
     depth_spec: str,
     frame_duration: int,
     out_root: Path,
+    metrics_list: Optional[List[Optional[Dict[str, float]]]] = None,
 ):
     if not kernels:
         return
@@ -381,15 +388,29 @@ def animate_branch(
         for in_idx in in_indices:
             for depth_idx in depth_indices:
                 frames = []
-                for (kernel, label, heatmap_stack) in zip(kernels, epoch_labels, heatmaps):
+                for idx_frame, (kernel, label, heatmap_stack) in enumerate(
+                    zip(kernels, epoch_labels, heatmaps)
+                ):
                     vol = kernel[:, :, :, in_idx, out_idx]
                     depth = depth_idx % vol.shape[2]
                     matrix = vol[:, :, depth]
                     filter_heatmap = heatmap_stack[out_idx]
                     top_coords = find_top_coords(filter_heatmap, topk)
                     title = (
-                        f"{branch_name} | filter {out_idx} | in {in_idx} | depth {depth} | epoch {label}"
+                        f"{branch_name} | filter {out_idx} | in {in_idx} | depth {depth} | {label}"
                     )
+                    subtitle = None
+                    if metrics_list and idx_frame < len(metrics_list):
+                        metrics = metrics_list[idx_frame] or {}
+                        loss = metrics.get("loss")
+                        acc = metrics.get("accuracy")
+                        parts = []
+                        if loss is not None and not math.isnan(loss):
+                            parts.append(f"loss={loss:.4f}")
+                        if acc is not None and not math.isnan(acc):
+                            parts.append(f"acc={acc:.4f}")
+                        if parts:
+                            subtitle = ", ".join(parts)
                     frames.append(
                         render_frame_with_heatmap(
                             matrix,
@@ -397,6 +418,7 @@ def animate_branch(
                             pauli_array,
                             top_coords,
                             title,
+                            subtitle=subtitle,
                         )
                     )
                 out_path = (
@@ -472,12 +494,13 @@ def main():
         else Path("results/analysis") / tag / "animations"
     )
 
+    epoch_labels = [label for _, label in weights]
     for branch in branches:
         animate_branch(
             branch,
             kernel_history[branch],
             heatmap_history[branch],
-            [label for _, label in weights],
+            epoch_labels,
             pauli_array,
             args.topk,
             args.filters,
@@ -485,6 +508,7 @@ def main():
             args.depth_indices,
             args.frame_duration,
             out_root,
+            metrics_list=None,
         )
 
 
@@ -525,8 +549,12 @@ def run_batch_mode(args, tag):
     kernel_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
     heatmap_history: Dict[str, List[np.ndarray]] = {b: [] for b in branches}
     labels: List[str] = []
+    metrics_records: List[Optional[Dict[str, float]]] = []
 
-    for weights_path, label in snapshots:
+    for snapshot in snapshots:
+        weights_path = snapshot["weights"]
+        label = snapshot["label"]
+        metrics = snapshot.get("metrics") if isinstance(snapshot, dict) else None
         print(f"Loading batch weights {weights_path}")
         model.load_weights(weights_path)
         for branch in branches:
@@ -541,6 +569,12 @@ def run_batch_mode(args, tag):
             )
             heatmap_history[branch].append(heatmaps)
         labels.append(label)
+        metrics_records.append(
+            {
+                "loss": metrics.get("loss") if isinstance(metrics, dict) else None,
+                "accuracy": metrics.get("accuracy") if isinstance(metrics, dict) else None,
+            }
+        )
 
     out_root = (
         Path(args.output_dir)
@@ -561,6 +595,7 @@ def run_batch_mode(args, tag):
             args.depth_indices,
             args.frame_duration,
             out_root,
+            metrics_records,
         )
 
 
@@ -587,8 +622,8 @@ def parse_batch_progress(batch_dir: Path) -> Optional[Dict[str, int]]:
 
 def collect_batch_snapshots(
     batch_dirs: List[Path], limit: Optional[int]
-) -> List[Tuple[Path, str]]:
-    snapshots: List[Tuple[Path, str]] = []
+) -> List[Dict[str, object]]:
+    snapshots: List[Dict[str, object]] = []
     for batch_dir in batch_dirs:
         weights_path = batch_dir / "weights.h5"
         if not weights_path.exists():
@@ -597,9 +632,22 @@ def collect_batch_snapshots(
         label = batch_dir.name
         if progress:
             label = f"{label} (patch {progress['start']}-{progress['end']})"
-        snapshots.append((weights_path, label))
-    if limit:
-        snapshots = snapshots[:limit]
+        metrics_path = batch_dir / "metrics.json"
+        metrics = {}
+        if metrics_path.exists():
+            try:
+                metrics = json.loads(metrics_path.read_text())
+            except Exception:
+                metrics = {}
+        snapshots.append(
+            {
+                "weights": weights_path,
+                "label": label,
+                "metrics": metrics,
+            }
+        )
+        if limit and len(snapshots) >= limit:
+            break
     return snapshots
 if __name__ == "__main__":
     main()
