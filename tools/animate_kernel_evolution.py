@@ -569,12 +569,7 @@ def run_batch_mode(args, tag):
             )
             heatmap_history[branch].append(heatmaps)
         labels.append(label)
-        metrics_records.append(
-            {
-                "loss": metrics.get("loss") if isinstance(metrics, dict) else None,
-                "accuracy": metrics.get("accuracy") if isinstance(metrics, dict) else None,
-            }
-        )
+        metrics_records.append(metrics if isinstance(metrics, dict) else None)
 
     out_root = (
         Path(args.output_dir)
@@ -601,10 +596,12 @@ def run_batch_mode(args, tag):
 
 def batch_dir_sort_key(path: Path):
     name = path.name
-    match = re.search(r"batch(\d+)", name)
-    idx = int(match.group(1)) if match else 0
+    match_epoch = re.search(r"epoch(\d+)", name)
+    epoch = int(match_epoch.group(1)) if match_epoch else 0
+    match_batch = re.search(r"batch(\d+)", name)
+    batch_idx = int(match_batch.group(1)) if match_batch else 0
     pre_flag = 0 if name.endswith("pre") else 1
-    return (idx, pre_flag, name)
+    return (epoch, batch_idx, pre_flag, name)
 
 
 def parse_batch_progress(batch_dir: Path) -> Optional[Dict[str, int]]:
@@ -639,11 +636,20 @@ def collect_batch_snapshots(
                 metrics = json.loads(metrics_path.read_text())
             except Exception:
                 metrics = {}
+        def _to_float(val):
+            if val in (None, ""):
+                return None
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return None
+        loss_val = _to_float(metrics.get("loss")) if isinstance(metrics, dict) else None
+        acc_val = _to_float(metrics.get("accuracy")) if isinstance(metrics, dict) else None
         snapshots.append(
             {
                 "weights": weights_path,
                 "label": label,
-                "metrics": metrics,
+                "metrics": {"loss": loss_val, "accuracy": acc_val},
             }
         )
         if limit and len(snapshots) >= limit:

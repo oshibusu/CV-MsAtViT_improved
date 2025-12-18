@@ -69,6 +69,7 @@ class BatchTraceCallback(keras.callbacks.Callback):
         depth_spec,
         batch_size,
         total_samples,
+        max_epochs,
     ):
         super().__init__()
         self.dataset_tag = dataset_tag
@@ -78,11 +79,13 @@ class BatchTraceCallback(keras.callbacks.Callback):
         self.depth_spec = depth_spec
         self.batch_size = batch_size
         self.total_samples = total_samples
+        self.max_epochs = max_epochs
         self.base_dir = os.path.join("ckpt", "batch_traces", dataset_tag)
         self.recording = True
         self.branch_configs = {}
-        self.csv_path = os.path.join(self.base_dir, "epoch01_batch_metrics.csv")
+        self.csv_path = os.path.join(self.base_dir, "batch_metrics.csv")
         self.csv_file = None
+        self.current_epoch = 0
 
     def on_train_begin(self, logs=None):
         os.makedirs(self.base_dir, exist_ok=True)
@@ -90,37 +93,59 @@ class BatchTraceCallback(keras.callbacks.Callback):
         os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
         self.csv_file = open(self.csv_path, "w", newline="")
         writer = csv.writer(self.csv_file)
-        writer.writerow(["snapshot", "batch_index", "start", "end", "loss", "accuracy"])
+        writer.writerow(["epoch", "snapshot", "batch_index", "start", "end", "loss", "accuracy"])
         self.csv_file.flush()
         self._save_snapshot(
-            os.path.join(self.base_dir, "epoch01_batch0000_pre"),
-            0,
-            0,
-            metrics=None,
+            epoch_idx=0,
             batch_index="pre",
+            start_idx=0,
+            end_idx=0,
+            metrics=None,
         )
 
     def on_epoch_begin(self, epoch, logs=None):
-        if epoch > 0:
+        self.current_epoch = epoch
+        if epoch >= self.max_epochs:
             self.recording = False
+            return
+        self.recording = True
+        if epoch > 0:
+            self._save_snapshot(
+                epoch_idx=epoch,
+                batch_index="pre",
+                start_idx=0,
+                end_idx=0,
+                metrics=None,
+            )
 
     def on_train_batch_end(self, batch, logs=None):
         if not self.recording:
             return
         start_idx = batch * self.batch_size
         end_idx = min(start_idx + self.batch_size, self.total_samples)
-        batch_dir = os.path.join(self.base_dir, f"epoch01_batch{batch:04d}")
         metrics = {
             "loss": float(logs.get("loss")) if logs and "loss" in logs else None,
             "accuracy": float(logs.get("accuracy")) if logs and "accuracy" in logs else None,
         }
-        self._save_snapshot(batch_dir, start_idx, end_idx, metrics=metrics, batch_index=batch)
+        self._save_snapshot(
+            epoch_idx=self.current_epoch,
+            batch_index=batch,
+            start_idx=start_idx,
+            end_idx=end_idx,
+            metrics=metrics,
+        )
 
     def on_train_end(self, logs=None):
         if self.csv_file:
             self.csv_file.close()
 
-    def _save_snapshot(self, batch_dir, start_idx, end_idx, metrics=None, batch_index=None):
+    def _save_snapshot(self, epoch_idx, batch_index, start_idx, end_idx, metrics=None):
+        epoch_name = f"epoch{epoch_idx + 1:02d}"
+        if batch_index == "pre":
+            suffix = "batch0000_pre"
+        else:
+            suffix = f"batch{int(batch_index):04d}"
+        batch_dir = os.path.join(self.base_dir, f"{epoch_name}_{suffix}")
         os.makedirs(batch_dir, exist_ok=True)
         with open(os.path.join(batch_dir, "progress.txt"), "w") as f:
             f.write(f"start={start_idx},end={end_idx}")
@@ -133,6 +158,7 @@ class BatchTraceCallback(keras.callbacks.Callback):
             writer = csv.writer(self.csv_file)
             writer.writerow(
                 [
+                    epoch_idx + 1,
                     os.path.basename(batch_dir),
                     batch_index,
                     start_idx,
@@ -221,27 +247,36 @@ def save_batch_curve(csv_path, dataset_tag):
     with open(csv_path, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            idx = row["batch_index"]
+            epoch_val = row.get("epoch")
+            try:
+                epoch_idx = int(epoch_val)
+            except (TypeError, ValueError):
+                epoch_idx = 1
+            idx = row.get("batch_index")
             if idx == "pre" or idx == "" or idx is None:
                 continue
             try:
                 batch_idx = int(idx)
             except ValueError:
                 continue
-            batch_indices.append(batch_idx)
+            global_idx = len(batch_indices)
+            batch_indices.append(global_idx)
             loss = row.get("loss")
             acc = row.get("accuracy")
             losses.append(float(loss) if loss not in (None, "") else math.nan)
             accuracies.append(float(acc) if acc not in (None, "") else math.nan)
     if not batch_indices:
         return
+    x_ticks = list(range(len(batch_indices)))
+    if not batch_indices:
+        return
     plot_dir = os.path.join("results", "plots")
     os.makedirs(plot_dir, exist_ok=True)
     plt.figure(figsize=(8, 5))
-    plt.plot(batch_indices, losses, label="loss")
+    plt.plot(x_ticks, losses, label="loss")
     if any(not math.isnan(a) for a in accuracies):
-        plt.plot(batch_indices, accuracies, label="accuracy")
-    plt.xlabel("Batch (epoch 1)")
+        plt.plot(x_ticks, accuracies, label="accuracy")
+    plt.xlabel("Batch step (recorded epochs)")
     plt.ylabel("Value")
     plt.title(f"Batch Curve (epoch 1, {dataset_tag})")
     plt.legend()
@@ -270,6 +305,12 @@ def parse_args():
         "--record-first-epoch",
         action="store_true",
         help="Record per-batch kernels during the first epoch",
+    )
+    parser.add_argument(
+        "--record-epochs",
+        type=int,
+        default=1,
+        help="Number of initial epochs to record when --record-first-epoch is enabled",
     )
     parser.add_argument(
         "--record-branches",
@@ -317,6 +358,7 @@ def main():
     dataset_tag = _dataset_tag(dataset)
     window_size = args.window_size
     test_ratio = args.test_ratio
+    record_epochs = max(1, args.record_epochs)
 
     data, gt = load_data(dataset)
     lr = args.learning_rate if args.learning_rate is not None else (0.0001 if dataset == "ober" else 0.001)
@@ -365,6 +407,7 @@ def main():
 
     record_callback = None
     if args.record_first_epoch:
+        record_epochs = max(1, args.record_epochs)
         branch_names = [b.strip() for b in args.record_branches.split(",") if b.strip()]
         if not branch_names:
             default_branches = [
@@ -384,14 +427,17 @@ def main():
                 args.record_depth,
                 args.batch_size,
                 X_train.shape[0],
+                record_epochs,
             )
             callbacks.append(record_callback)
         else:
             print("[warn] No matching branches found for recording; skipping batch trace")
 
-    training_epochs = 1 if args.record_first_epoch else args.epochs
-    if args.record_first_epoch and args.epochs > 1:
-        print("[info] record-first-epoch enabled: training will stop after the first epoch")
+    training_epochs = record_epochs if args.record_first_epoch else args.epochs
+    if args.record_first_epoch and args.epochs > record_epochs:
+        print(
+            f"[info] record-first-epoch enabled: training will stop after {record_epochs} epoch(s)"
+        )
 
     history = model.fit(
         X_train,
