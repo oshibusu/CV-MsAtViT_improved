@@ -145,7 +145,6 @@ def run_epoch_mode(args, tag):
                 depth_indices,
                 title=os.path.basename(wf),
                 filters_per_frame=args.frame_filters,
-                branch_name=branch,
             )
             frames.append(frame)
         if frames:
@@ -255,7 +254,7 @@ def run_batch_mode(args, tag):
                     for depth in depth_indices:
                         d = depth % depth_len
                         matrix = vol[:, :, d]
-                        combined_slices.append((f"{branch}:f{filt_idx} d{depth}", matrix))
+                        combined_slices.append((f"f{filt_idx}, d{depth}", matrix))
             frame = render_multi_filter_frame_from_slices(
                 combined_slices,
                 title=label,
@@ -293,7 +292,6 @@ def run_batch_mode(args, tag):
                     title=label,
                     subtitle=subtitle_text,
                     filters_per_frame=args.frame_filters,
-                    branch_name=branch,
                 )
                 frames.append(frame)
             if frames:
@@ -309,7 +307,6 @@ def render_multi_filter_frame(
     title: str,
     subtitle: Optional[str] = None,
     filters_per_frame: int = 24,
-    branch_name: Optional[str] = None,
 ):
     slices: List[Tuple[str, np.ndarray]] = []
     for filt_idx in filter_indices:
@@ -319,9 +316,8 @@ def render_multi_filter_frame(
         depth_len = vol.shape[2]
         for depth in depth_indices:
             d = depth % depth_len
-            prefix = f"{branch_name} " if branch_name else ""
-            label = f"{prefix}f{filt_idx} d{depth}"
-            slices.append((label.strip(), vol[:, :, d]))
+            label = f"f{filt_idx}, d{depth}"
+            slices.append((label, vol[:, :, d]))
     return _render_slices_grid(
         slices,
         title=title,
@@ -400,8 +396,9 @@ def _render_slices_grid(
                 ax.set_ylabel(label, fontsize=7)
             if row == 0:
                 ax.set_title(col_title)
-                cbar = fig.colorbar(im, ax=ax, fraction=0.035, pad=0.01)
-                cbar.ax.tick_params(labelsize=6)
+                # 色のガイドを読みやすくするためにカラーバーを大きめに確保する。
+                cbar = fig.colorbar(im, ax=ax, fraction=0.08, pad=0.02)
+                cbar.ax.tick_params(labelsize=7)
     caption = title if not subtitle else f"{title}\n{subtitle}"
     fig.suptitle(caption, fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
