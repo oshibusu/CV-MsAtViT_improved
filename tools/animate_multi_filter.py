@@ -15,6 +15,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import Normalize
 import numpy as np
@@ -385,6 +386,7 @@ def _render_slices_grid(
         ("|z|", np.abs, "gray", abs_norm),
         ("arg(z)", np.angle, "twilight", arg_norm),
     ]
+    column_axes: List[List[plt.Axes]] = [[] for _ in column_specs]
 
     for row, (label, matrix) in enumerate(chunk):
         for col, (col_title, extractor, cmap, norm) in enumerate(column_specs):
@@ -396,9 +398,18 @@ def _render_slices_grid(
                 ax.set_ylabel(label, fontsize=7)
             if row == 0:
                 ax.set_title(col_title)
-                # 色のガイドを読みやすくするためにカラーバーを大きめに確保する。
-                cbar = fig.colorbar(im, ax=ax, fraction=0.08, pad=0.02)
-                cbar.ax.tick_params(labelsize=7)
+            column_axes[col].append(ax)
+
+    for col, (col_title, _, cmap, norm) in enumerate(column_specs):
+        mappable = ScalarMappable(norm=norm, cmap=cmap)
+        # 列全体を対象に1本のカラーバーを描くと各行の x 座標がずれない。
+        cbar = fig.colorbar(
+            mappable,
+            ax=column_axes[col],
+            fraction=0.08,
+            pad=0.02,
+        )
+        cbar.ax.tick_params(labelsize=7)
     caption = title if not subtitle else f"{title}\n{subtitle}"
     fig.suptitle(caption, fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
