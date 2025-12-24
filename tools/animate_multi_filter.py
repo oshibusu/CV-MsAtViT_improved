@@ -102,7 +102,7 @@ def parse_index_spec(spec: str, max_len: int):
 
 
 def run_epoch_mode(args, tag):
-    pattern = args.weights-pattern or os.path.join("ckpt", f"CV_MsAtViT_{tag}_epoch*.weights.h5")
+    pattern = args.weights_pattern or os.path.join("ckpt", f"CV_MsAtViT_{tag}_epoch*.weights.h5")
     weight_files = sorted(glob.glob(pattern))
     if args.max_epochs:
         weight_files = weight_files[: args.max_epochs]
@@ -131,18 +131,14 @@ def run_epoch_mode(args, tag):
     out_root.mkdir(parents=True, exist_ok=True)
 
     for branch in branches:
-        filter_indices = None
-        depth_indices = None
         frames = []
         labels = []
         for wf in weight_files:
             model.load_weights(wf)
             layer = model.get_layer(branch)
             kernel = combine_complex_kernel(layer.get_weights())
-            if filter_indices is None:
-                filter_indices = parse_index_spec(args.filters, kernel.shape[-1])
-            if depth_indices is None:
-                depth_indices = parse_index_spec(args.depths, kernel.shape[2])
+            filter_indices = parse_index_spec(args.filters, kernel.shape[-1])
+            depth_indices = parse_index_spec(args.depths, kernel.shape[2])
             frame = render_multi_filter_frame(
                 kernel,
                 filter_indices,
@@ -198,6 +194,7 @@ def collect_batch_snapshots(trace_root: Path, max_epochs: int, max_batches: Opti
                 "label": d.name,
                 "metrics": {"loss": _to_float(metrics.get("loss")), "accuracy": _to_float(metrics.get("accuracy"))},
                 "epoch": epoch_idx,
+                "branch_dir": d,
             }
         )
         epoch_counts[epoch_idx] += 1
@@ -258,7 +255,7 @@ def run_batch_mode(args, tag):
                     for depth in depth_indices:
                         d = depth % depth_len
                         matrix = vol[:, :, d]
-                        combined_slices.append((f"{branch} f{filt_idx} d{depth}", matrix))
+                        combined_slices.append((f"{branch}:f{filt_idx} d{depth}", matrix))
             frame = render_multi_filter_frame_from_slices(
                 combined_slices,
                 title=label,
@@ -302,149 +299,57 @@ def run_batch_mode(args, tag):
                 out_path = out_root / f"{branch}_multi.gif"
                 save_gif(frames, out_path, args.frame_duration)
                 print("Saved", out_path)
-
-
-def batch_dir_sort_key(path: Path):
-    name = path.name
-    match_epoch = re.search(r"epoch(\d+)", name)
-    epoch = int(match_epoch.group(1)) if match_epoch else 0
-    match_batch = re.search(r"batch(\d+)", name)
-    batch_idx = int(match_batch.group(1)) if match_batch else 0
-    pre_flag = 0 if name.endswith("pre") else 1
-    return (epoch, batch_idx, pre_flag, name)
-
-
-def render_multi_filter_frame(
-    kernel: np.ndarray,
-    filter_indices: List[int],
-    in_idx: int,
-    depth_indices: List[int],
-    title: str,
-    subtitle: Optional[str] = None,
-    filters_per_frame: int = 24,
-    branch_name: Optional[str] = None,
-) -> Image.Image:
-    slices = []
-    for filt_idx in filter_indices:
-        if filt_idx >= kernel.shape[-1]:
-            continue
-        vol = kernel[:, :, :, in_idx, filt_idx]
-        depth_len = vol.shape[2]
-        for depth in depth_indices:
-            d = depth % depth_len
-            matrix = vol[:, :, d]
-            slices.append((f"filter{filt_idx}_depth{depth}", matrix))
-    if not slices:
-        raise ValueError("No slices to render")
-
-    # Determine slicing per frame chunk
-    chunk = slices[:filters_per_frame]
-    # Compute shared normalization
-    all_vals = np.concatenate([np.real(m).ravel() for _, m in chunk] + [np.imag(m).ravel() for _, m in chunk] + [np.abs(m).ravel() for _, m in chunk])
-    finite_vals = all_vals[np.isfinite(all_vals)]
-    if finite_vals.size == 0:
-        vmin, vmax = -1, 1
-    else:
-        vmin, vmax = float(finite_vals.min()), float(finite_vals.max())
-    norm = Normalize(vmin=vmin, vmax=vmax)
-
-    n_rows = len(chunk)
-    fig = plt.figure(figsize=(10, max(2, n_rows * 0.6)))
-    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
-    for row, (label, matrix) in enumerate(chunk):
-        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
-        cmaps = ["gray", "gray", "gray", "twilight"]
-        norms = [norm, norm, norm, Normalize(vmin=-math.pi, vmax=math.pi)]
-        titles = ["Re", "Im", "|z|", "arg(z)"]
-        for col in range(4):
-            ax = fig.add_subplot(gs[row, col])
-            ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
-            if row == 0:
-                ax.set_title(titles[col])
-            ax.set_xticks([])
-            ax.set_yticks([])
-            if col == 0:
-                ax.set_ylabel(label)
-    caption = title if not subtitle else f"{title}\n{subtitle}"
-    fig.suptitle(caption)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150)
-    plt.close(fig)
-    buf.seek(0)
-    return Image.open(buf).convert("RGB")
-
-
-def render_multi_filter_frame_from_slices(
-    slices: List[Tuple[str, np.ndarray]],
-    title: str,
-    subtitle: Optional[str] = None,
-    filters_per_frame: int = 24,
-) -> Image.Image:
-    chunk = slices[:filters_per_frame]
-    if not chunk:
-        raise ValueError("No slices to render")
-    all_vals = np.concatenate([
-        np.real(m).ravel() for _, m in chunk
-    ] + [
-        np.imag(m).ravel() for _, m in chunk
-    ] + [
-        np.abs(m).ravel() for _, m in chunk
-    ])
-    finite_vals = all_vals[np.isfinite(all_vals)]
-    if finite_vals.size == 0:
-        vmin, vmax = -1, 1
-    else:
-        vmin, vmax = float(finite_vals.min()), float(finite_vals.max())
-    norm = Normalize(vmin=vmin, vmax=vmax)
-    n_rows = len(chunk)
-    fig = plt.figure(figsize=(10, max(2, n_rows * 0.6)))
-    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
-    for row, (label, matrix) in enumerate(chunk):
-        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
-        cmaps = ["gray", "gray", "gray", "twilight"]
-        norms = [norm, norm, norm, Normalize(vmin=-math.pi, vmax=math.pi)]
-        titles = ["Re", "Im", "|z|", "arg(z)"]
-        for col in range(4):
-            ax = fig.add_subplot(gs[row, col])
-            ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
-            if row == 0:
-                ax.set_title(titles[col])
-            ax.set_xticks([])
-            ax.set_yticks([])
-            if col == 0:
-                ax.set_ylabel(label)
-    caption = title if not subtitle else f"{title}\n{subtitle}"
-    fig.suptitle(caption)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150)
-    plt.close(fig)
-    buf.seek(0)
-    return Image.open(buf).convert("RGB")
-
-
-def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
-    if not frames:
-        return
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    frames[0].save(
-        output_path,
-        save_all=True,
-        append_images=frames[1:],
-        duration=duration,
-        loop=0,
-    )
-
-
-def main():
-    args = parse_args()
-    tag = dataset_tag(args.dataset)
-    if args.mode == "batch":
-        run_batch_mode(args, tag)
-    else:
-        run_epoch_mode(args, tag)
-
-
-if __name__ == "__main__":
-    main()
+@@
+ def render_multi_filter_frame(
+@@
+-    n_rows = len(chunk)
+-    fig = plt.figure(figsize=(10, max(2, n_rows * 0.6)))
+-    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
+-    for row, (label, matrix) in enumerate(chunk):
+-        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
+-        cmaps = ["gray", "gray", "gray", "twilight"]
+-        norms = [norm, norm, norm, Normalize(vmin=-math.pi, vmax=math.pi)]
+-        titles = ["Re", "Im", "|z|", "arg(z)"]
+-        for col in range(4):
+-            ax = fig.add_subplot(gs[row, col])
+-            ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
+-            if row == 0:
+-                ax.set_title(titles[col])
+-            ax.set_xticks([])
+-            ax.set_yticks([])
+-            if col == 0:
+-                ax.set_ylabel(label)
++    n_rows = len(chunk)
++    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
++    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
++    re_list, im_list, abs_list = [], [], []
++    for _, matrix in chunk:
++        re_list.append(np.real(matrix))
++        im_list.append(np.imag(matrix))
++        abs_list.append(np.abs(matrix))
++    re_stack = np.concatenate([m.ravel() for m in re_list]) if re_list else np.array([0])
++    im_stack = np.concatenate([m.ravel() for m in im_list]) if im_list else np.array([0])
++    abs_stack = np.concatenate([m.ravel() for m in abs_list]) if abs_list else np.array([0])
++    re_norm = Normalize(vmin=float(np.nanmin(re_stack)), vmax=float(np.nanmax(re_stack)))
++    im_norm = Normalize(vmin=float(np.nanmin(im_stack)), vmax=float(np.nanmax(im_stack)))
++    abs_norm = Normalize(vmin=float(np.nanmin(abs_stack)), vmax=float(np.nanmax(abs_stack)))
++
++    for row, (label, matrix) in enumerate(chunk):
++        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
++        cmaps = ["gray", "gray", "gray", "twilight"]
++        norms = [re_norm, im_norm, abs_norm, Normalize(vmin=-math.pi, vmax=math.pi)]
++        titles = ["Re", "Im", "|z|", "arg(z)"]
++        for col in range(4):
++            ax = fig.add_subplot(gs[row, col])
++            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
++            if row == 0:
++                ax.set_title(titles[col])
++            ax.set_xticks([])
++            ax.set_yticks([])
++            if col == 0:
++                ax.set_ylabel(label, fontsize=7)
++            if row == n_rows - 1:
++                cbar = fig.colorbar(im, ax=ax, fraction=0.015, pad=0.01)
+@@
+ def render_multi_filter_frame_from_slices(
+*** End Patch
