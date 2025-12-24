@@ -375,6 +375,55 @@ def render_multi_filter_frame(
     return Image.open(buf).convert("RGB")
 
 
+def render_multi_filter_frame_from_slices(
+    slices: List[Tuple[str, np.ndarray]],
+    title: str,
+    subtitle: Optional[str] = None,
+    filters_per_frame: int = 24,
+) -> Image.Image:
+    chunk = slices[:filters_per_frame]
+    if not chunk:
+        raise ValueError("No slices to render")
+    all_vals = np.concatenate([
+        np.real(m).ravel() for _, m in chunk
+    ] + [
+        np.imag(m).ravel() for _, m in chunk
+    ] + [
+        np.abs(m).ravel() for _, m in chunk
+    ])
+    finite_vals = all_vals[np.isfinite(all_vals)]
+    if finite_vals.size == 0:
+        vmin, vmax = -1, 1
+    else:
+        vmin, vmax = float(finite_vals.min()), float(finite_vals.max())
+    norm = Normalize(vmin=vmin, vmax=vmax)
+    n_rows = len(chunk)
+    fig = plt.figure(figsize=(10, max(2, n_rows * 0.6)))
+    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
+    for row, (label, matrix) in enumerate(chunk):
+        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
+        cmaps = ["gray", "gray", "gray", "twilight"]
+        norms = [norm, norm, norm, Normalize(vmin=-math.pi, vmax=math.pi)]
+        titles = ["Re", "Im", "|z|", "arg(z)"]
+        for col in range(4):
+            ax = fig.add_subplot(gs[row, col])
+            ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
+            if row == 0:
+                ax.set_title(titles[col])
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if col == 0:
+                ax.set_ylabel(label)
+    caption = title if not subtitle else f"{title}\n{subtitle}"
+    fig.suptitle(caption)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
+
 def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
     if not frames:
         return
