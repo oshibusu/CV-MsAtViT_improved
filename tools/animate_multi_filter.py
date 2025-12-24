@@ -171,7 +171,15 @@ def run_epoch_mode(args, tag):
                 abs_norm=abs_norm,
             )
             frames.append(frame)
+            if len(frames) == 1:
+                save_png(
+                    frame,
+                    out_root
+                    / f"{branch}_multi_{sanitize_label(os.path.basename(wf))}.png",
+                )
         if frames:
+            last_label = sanitize_label(os.path.basename(weight_files[-1]))
+            save_png(frames[-1], out_root / f"{branch}_multi_{last_label}.png")
             out_path = out_root / f"{branch}_multi.gif"
             save_gif(frames, out_path, args.frame_duration)
             print("Saved", out_path)
@@ -308,7 +316,10 @@ def run_batch_mode(args, tag):
                 abs_norm=abs_norm,
             )
             frames.append(frame)
+            if len(frames) == 1:
+                save_png(frame, out_root / f"combined_multi_{sanitize_label(label)}.png")
         if frames:
+            save_png(frames[-1], out_root / f"combined_multi_{sanitize_label(snapshots[-1]['label'])}.png")
             out_path = out_root / "combined_multi.gif"
             save_gif(frames, out_path, args.frame_duration)
             print("Saved", out_path)
@@ -360,7 +371,18 @@ def run_batch_mode(args, tag):
                     abs_norm=abs_norm,
                 )
                 frames.append(frame)
+                if len(frames) == 1:
+                    save_png(
+                        frame,
+                        out_root
+                        / f"{branch}_multi_{sanitize_label(label)}.png",
+                    )
             if frames:
+                save_png(
+                    frames[-1],
+                    out_root
+                    / f"{branch}_multi_{sanitize_label(snapshots[-1]['label'])}.png",
+                )
                 out_path = out_root / f"{branch}_multi.gif"
                 save_gif(frames, out_path, args.frame_duration)
                 print("Saved", out_path)
@@ -570,6 +592,15 @@ def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
         duration=duration,
         loop=0,
     )
+
+
+def save_png(frame: Image.Image, output_path: Path):
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.save(output_path, format="PNG")
+
+
+def sanitize_label(label: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", label)
 
 
 def batch_dir_sort_key(path: Path):
