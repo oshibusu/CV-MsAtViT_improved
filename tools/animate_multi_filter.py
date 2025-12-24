@@ -360,27 +360,33 @@ def _render_slices_grid(
     fig = plt.figure(figsize=(12, max(2, n_rows * 0.65)))
     gs = GridSpec(n_rows, 4, figure=fig, wspace=0.3, hspace=0.45)
 
-    # Re/Im/|z| share one grayscale normalization so that intensities are comparable across panels.
+    # Re/Im は共通でゼロ対称の正規化、|z| は独立したパーセンタイルベースの正規化を行う。
     re_vals = np.concatenate([np.real(m).ravel() for _, m in chunk])
     im_vals = np.concatenate([np.imag(m).ravel() for _, m in chunk])
     abs_vals = np.concatenate([np.abs(m).ravel() for _, m in chunk])
-    gray_min = min(float(np.nanmin(re_vals)), float(np.nanmin(im_vals)), float(np.nanmin(abs_vals)))
-    gray_max = max(float(np.nanmax(re_vals)), float(np.nanmax(im_vals)), float(np.nanmax(abs_vals)))
-    if not math.isfinite(gray_min):
-        gray_min = 0.0
-    if not math.isfinite(gray_max):
-        gray_max = 1.0
-    if math.isclose(gray_min, gray_max):
-        eps = 1e-6 if gray_min == 0 else abs(gray_min) * 1e-3
-        gray_min -= eps
-        gray_max += eps
-    gray_norm = Normalize(vmin=gray_min, vmax=gray_max)
+    max_abs = max(
+        float(np.nanmax(np.abs(re_vals))),
+        float(np.nanmax(np.abs(im_vals))),
+        1e-9,
+    )
+    reim_norm = Normalize(vmin=-max_abs, vmax=max_abs)
+
+    valid_abs = abs_vals[np.isfinite(abs_vals)]
+    if valid_abs.size:
+        abs_lo, abs_hi = np.percentile(valid_abs, [2, 98])
+    else:
+        abs_lo, abs_hi = 0.0, 1.0
+    if abs_hi - abs_lo < 1e-9:
+        eps = abs_hi * 1e-3 if abs_hi != 0 else 1e-6
+        abs_lo -= eps
+        abs_hi += eps
+    abs_norm = Normalize(vmin=float(abs_lo), vmax=float(abs_hi))
     arg_norm = Normalize(vmin=-math.pi, vmax=math.pi)
 
     column_specs = [
-        ("Re", np.real, "gray", gray_norm),
-        ("Im", np.imag, "gray", gray_norm),
-        ("|z|", np.abs, "gray", gray_norm),
+        ("Re", np.real, "gray", reim_norm),
+        ("Im", np.imag, "gray", reim_norm),
+        ("|z|", np.abs, "gray", abs_norm),
         ("arg(z)", np.angle, "twilight", arg_norm),
     ]
 
