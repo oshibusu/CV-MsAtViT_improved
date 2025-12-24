@@ -132,7 +132,6 @@ def run_epoch_mode(args, tag):
 
     for branch in branches:
         frames = []
-        labels = []
         for wf in weight_files:
             model.load_weights(wf)
             layer = model.get_layer(branch)
@@ -145,9 +144,10 @@ def run_epoch_mode(args, tag):
                 args.in_index,
                 depth_indices,
                 title=os.path.basename(wf),
+                filters_per_frame=args.frame_filters,
+                branch_name=branch,
             )
             frames.append(frame)
-            labels.append(os.path.basename(wf))
         if frames:
             out_path = out_root / f"{branch}_multi.gif"
             save_gif(frames, out_path, args.frame_duration)
@@ -293,6 +293,7 @@ def run_batch_mode(args, tag):
                     title=label,
                     subtitle=subtitle_text,
                     filters_per_frame=args.frame_filters,
+                    branch_name=branch,
                 )
                 frames.append(frame)
             if frames:
@@ -310,7 +311,7 @@ def render_multi_filter_frame(
     filters_per_frame: int = 24,
     branch_name: Optional[str] = None,
 ):
-    slices = []
+    slices: List[Tuple[str, np.ndarray]] = []
     for filt_idx in filter_indices:
         if filt_idx >= kernel.shape[-1]:
             continue
@@ -318,44 +319,15 @@ def render_multi_filter_frame(
         depth_len = vol.shape[2]
         for depth in depth_indices:
             d = depth % depth_len
-            label = f"{branch_name + ' ' if branch_name else ''}f{filt_idx} d{depth}"
+            prefix = f"{branch_name} " if branch_name else ""
+            label = f"{prefix}f{filt_idx} d{depth}"
             slices.append((label.strip(), vol[:, :, d]))
-    chunk = slices[:filters_per_frame]
-    if not chunk:
-        raise ValueError("No slices to render")
-    n_rows = len(chunk)
-    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
-    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
-    re_vals = np.concatenate([np.real(m).ravel() for _, m in chunk])
-    im_vals = np.concatenate([np.imag(m).ravel() for _, m in chunk])
-    abs_vals = np.concatenate([np.abs(m).ravel() for _, m in chunk])
-    re_norm = Normalize(vmin=float(np.nanmin(re_vals)), vmax=float(np.nanmax(re_vals)))
-    im_norm = Normalize(vmin=float(np.nanmin(im_vals)), vmax=float(np.nanmax(im_vals)))
-    abs_norm = Normalize(vmin=float(np.nanmin(abs_vals)), vmax=float(np.nanmax(abs_vals)))
-    arg_norm = Normalize(vmin=-math.pi, vmax=math.pi)
-    for row, (label, matrix) in enumerate(chunk):
-        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
-        cmaps = ['gray', 'gray', 'gray', 'twilight']
-        norms = [re_norm, im_norm, abs_norm, arg_norm]
-        titles = ['Re', 'Im', '|z|', 'arg(z)']
-        for col in range(4):
-            ax = fig.add_subplot(gs[row, col])
-            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
-            if row == 0:
-                ax.set_title(titles[col])
-                fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            if col == 0:
-                ax.set_ylabel(label, fontsize=7)
-    caption = title if not subtitle else f"{title}\n{subtitle}"
-    fig.suptitle(caption)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150)
-    plt.close(fig)
-    buf.seek(0)
-    return Image.open(buf).convert('RGB')
+    return _render_slices_grid(
+        slices,
+        title=title,
+        subtitle=subtitle,
+        filters_per_frame=filters_per_frame,
+    )
 
 
 def render_multi_filter_frame_from_slices(
@@ -364,39 +336,107 @@ def render_multi_filter_frame_from_slices(
     subtitle: Optional[str] = None,
     filters_per_frame: int = 24,
 ):
-    chunk = slices[:filters_per_frame]
-    if not chunk:
+    return _render_slices_grid(
+        slices,
+        title=title,
+        subtitle=subtitle,
+        filters_per_frame=filters_per_frame,
+    )
+
+
+def _render_slices_grid(
+    slices: List[Tuple[str, np.ndarray]],
+    title: str,
+    subtitle: Optional[str],
+    filters_per_frame: int,
+) -> Image.Image:
+    if not slices:
         raise ValueError("No slices to render")
+    max_rows = len(slices)
+    if filters_per_frame and filters_per_frame > 0:
+        max_rows = min(max_rows, filters_per_frame)
+    chunk = slices[:max_rows]
     n_rows = len(chunk)
-    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
-    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
+    fig = plt.figure(figsize=(12, max(2, n_rows * 0.65)))
+    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.3, hspace=0.45)
+
+    # Re/Im/|z| share one grayscale normalization so that intensities are comparable across panels.
     re_vals = np.concatenate([np.real(m).ravel() for _, m in chunk])
     im_vals = np.concatenate([np.imag(m).ravel() for _, m in chunk])
     abs_vals = np.concatenate([np.abs(m).ravel() for _, m in chunk])
-    re_norm = Normalize(vmin=float(np.nanmin(re_vals)), vmax=float(np.nanmax(re_vals)))
-    im_norm = Normalize(vmin=float(np.nanmin(im_vals)), vmax=float(np.nanmax(im_vals)))
-    abs_norm = Normalize(vmin=float(np.nanmin(abs_vals)), vmax=float(np.nanmax(abs_vals)))
+    gray_min = min(float(np.nanmin(re_vals)), float(np.nanmin(im_vals)), float(np.nanmin(abs_vals)))
+    gray_max = max(float(np.nanmax(re_vals)), float(np.nanmax(im_vals)), float(np.nanmax(abs_vals)))
+    if not math.isfinite(gray_min):
+        gray_min = 0.0
+    if not math.isfinite(gray_max):
+        gray_max = 1.0
+    if math.isclose(gray_min, gray_max):
+        eps = 1e-6 if gray_min == 0 else abs(gray_min) * 1e-3
+        gray_min -= eps
+        gray_max += eps
+    gray_norm = Normalize(vmin=gray_min, vmax=gray_max)
     arg_norm = Normalize(vmin=-math.pi, vmax=math.pi)
+
+    column_specs = [
+        ("Re", np.real, "gray", gray_norm),
+        ("Im", np.imag, "gray", gray_norm),
+        ("|z|", np.abs, "gray", gray_norm),
+        ("arg(z)", np.angle, "twilight", arg_norm),
+    ]
+
     for row, (label, matrix) in enumerate(chunk):
-        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
-        cmaps = ["gray", "gray", "gray", "twilight"]
-        norms = [re_norm, im_norm, abs_norm, arg_norm]
-        titles = ["Re", "Im", "|z|", "arg(z)"]
-        for col in range(4):
+        for col, (col_title, extractor, cmap, norm) in enumerate(column_specs):
             ax = fig.add_subplot(gs[row, col])
-            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
-            if row == 0:
-                ax.set_title(titles[col])
-                fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            im = ax.imshow(extractor(matrix), cmap=cmap, norm=norm)
             ax.set_xticks([])
             ax.set_yticks([])
             if col == 0:
                 ax.set_ylabel(label, fontsize=7)
+            if row == 0:
+                ax.set_title(col_title)
+                cbar = fig.colorbar(im, ax=ax, fraction=0.035, pad=0.01)
+                cbar.ax.tick_params(labelsize=6)
     caption = title if not subtitle else f"{title}\n{subtitle}"
-    fig.suptitle(caption)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    fig.suptitle(caption, fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150)
+    fig.savefig(buf, format="png", dpi=150)
     plt.close(fig)
     buf.seek(0)
-    return Image.open(buf).convert('RGB')
+    return Image.open(buf).convert("RGB")
+
+
+def save_gif(frames: List[Image.Image], output_path: Path, duration: int):
+    if not frames:
+        return
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frames[0].save(
+        output_path,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=0,
+    )
+
+
+def batch_dir_sort_key(path: Path):
+    name = path.name
+    match_epoch = re.search(r"epoch(\d+)", name)
+    epoch = int(match_epoch.group(1)) if match_epoch else 0
+    match_batch = re.search(r"batch(\d+)", name)
+    batch_idx = int(match_batch.group(1)) if match_batch else 0
+    pre_flag = 0 if name.endswith("pre") else 1
+    return (epoch, batch_idx, pre_flag, name)
+
+
+def main():
+    args = parse_args()
+    tag = dataset_tag(args.dataset)
+    if args.mode == "batch":
+        run_batch_mode(args, tag)
+    else:
+        run_epoch_mode(args, tag)
+
+
+if __name__ == "__main__":
+    main()
