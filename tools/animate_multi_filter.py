@@ -299,57 +299,104 @@ def run_batch_mode(args, tag):
                 out_path = out_root / f"{branch}_multi.gif"
                 save_gif(frames, out_path, args.frame_duration)
                 print("Saved", out_path)
-@@
- def render_multi_filter_frame(
-@@
--    n_rows = len(chunk)
--    fig = plt.figure(figsize=(10, max(2, n_rows * 0.6)))
--    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
--    for row, (label, matrix) in enumerate(chunk):
--        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
--        cmaps = ["gray", "gray", "gray", "twilight"]
--        norms = [norm, norm, norm, Normalize(vmin=-math.pi, vmax=math.pi)]
--        titles = ["Re", "Im", "|z|", "arg(z)"]
--        for col in range(4):
--            ax = fig.add_subplot(gs[row, col])
--            ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
--            if row == 0:
--                ax.set_title(titles[col])
--            ax.set_xticks([])
--            ax.set_yticks([])
--            if col == 0:
--                ax.set_ylabel(label)
-+    n_rows = len(chunk)
-+    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
-+    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
-+    re_list, im_list, abs_list = [], [], []
-+    for _, matrix in chunk:
-+        re_list.append(np.real(matrix))
-+        im_list.append(np.imag(matrix))
-+        abs_list.append(np.abs(matrix))
-+    re_stack = np.concatenate([m.ravel() for m in re_list]) if re_list else np.array([0])
-+    im_stack = np.concatenate([m.ravel() for m in im_list]) if im_list else np.array([0])
-+    abs_stack = np.concatenate([m.ravel() for m in abs_list]) if abs_list else np.array([0])
-+    re_norm = Normalize(vmin=float(np.nanmin(re_stack)), vmax=float(np.nanmax(re_stack)))
-+    im_norm = Normalize(vmin=float(np.nanmin(im_stack)), vmax=float(np.nanmax(im_stack)))
-+    abs_norm = Normalize(vmin=float(np.nanmin(abs_stack)), vmax=float(np.nanmax(abs_stack)))
-+
-+    for row, (label, matrix) in enumerate(chunk):
-+        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
-+        cmaps = ["gray", "gray", "gray", "twilight"]
-+        norms = [re_norm, im_norm, abs_norm, Normalize(vmin=-math.pi, vmax=math.pi)]
-+        titles = ["Re", "Im", "|z|", "arg(z)"]
-+        for col in range(4):
-+            ax = fig.add_subplot(gs[row, col])
-+            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
-+            if row == 0:
-+                ax.set_title(titles[col])
-+            ax.set_xticks([])
-+            ax.set_yticks([])
-+            if col == 0:
-+                ax.set_ylabel(label, fontsize=7)
-+            if row == n_rows - 1:
-+                cbar = fig.colorbar(im, ax=ax, fraction=0.015, pad=0.01)
-@@
- def render_multi_filter_frame_from_slices(
-*** End Patch
+ 
+def render_multi_filter_frame(
+    kernel: np.ndarray,
+    filter_indices: List[int],
+    in_idx: int,
+    depth_indices: List[int],
+    title: str,
+    subtitle: Optional[str] = None,
+    filters_per_frame: int = 24,
+    branch_name: Optional[str] = None,
+):
+    slices = []
+    for filt_idx in filter_indices:
+        if filt_idx >= kernel.shape[-1]:
+            continue
+        vol = kernel[:, :, :, in_idx, filt_idx]
+        depth_len = vol.shape[2]
+        for depth in depth_indices:
+            d = depth % depth_len
+            label = f"{branch_name + ' ' if branch_name else ''}f{filt_idx} d{depth}"
+            slices.append((label.strip(), vol[:, :, d]))
+    chunk = slices[:filters_per_frame]
+    if not chunk:
+        raise ValueError("No slices to render")
+    n_rows = len(chunk)
+    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
+    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
+    re_vals = np.concatenate([np.real(m).ravel() for _, m in chunk])
+    im_vals = np.concatenate([np.imag(m).ravel() for _, m in chunk])
+    abs_vals = np.concatenate([np.abs(m).ravel() for _, m in chunk])
+    re_norm = Normalize(vmin=float(np.nanmin(re_vals)), vmax=float(np.nanmax(re_vals)))
+    im_norm = Normalize(vmin=float(np.nanmin(im_vals)), vmax=float(np.nanmax(im_vals)))
+    abs_norm = Normalize(vmin=float(np.nanmin(abs_vals)), vmax=float(np.nanmax(abs_vals)))
+    arg_norm = Normalize(vmin=-math.pi, vmax=math.pi)
+    for row, (label, matrix) in enumerate(chunk):
+        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
+        cmaps = ['gray', 'gray', 'gray', 'twilight']
+        norms = [re_norm, im_norm, abs_norm, arg_norm]
+        titles = ['Re', 'Im', '|z|', 'arg(z)']
+        for col in range(4):
+            ax = fig.add_subplot(gs[row, col])
+            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
+            if row == 0:
+                ax.set_title(titles[col])
+                fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if col == 0:
+                ax.set_ylabel(label, fontsize=7)
+    caption = title if not subtitle else f"{title}\n{subtitle}"
+    fig.suptitle(caption)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGB')
+
+
+def render_multi_filter_frame_from_slices(
+    slices: List[Tuple[str, np.ndarray]],
+    title: str,
+    subtitle: Optional[str] = None,
+    filters_per_frame: int = 24,
+):
+    chunk = slices[:filters_per_frame]
+    if not chunk:
+        raise ValueError("No slices to render")
+    n_rows = len(chunk)
+    fig = plt.figure(figsize=(12, max(2, n_rows * 0.6)))
+    gs = GridSpec(n_rows, 4, figure=fig, wspace=0.2, hspace=0.4)
+    re_vals = np.concatenate([np.real(m).ravel() for _, m in chunk])
+    im_vals = np.concatenate([np.imag(m).ravel() for _, m in chunk])
+    abs_vals = np.concatenate([np.abs(m).ravel() for _, m in chunk])
+    re_norm = Normalize(vmin=float(np.nanmin(re_vals)), vmax=float(np.nanmax(re_vals)))
+    im_norm = Normalize(vmin=float(np.nanmin(im_vals)), vmax=float(np.nanmax(im_vals)))
+    abs_norm = Normalize(vmin=float(np.nanmin(abs_vals)), vmax=float(np.nanmax(abs_vals)))
+    arg_norm = Normalize(vmin=-math.pi, vmax=math.pi)
+    for row, (label, matrix) in enumerate(chunk):
+        panels = [np.real(matrix), np.imag(matrix), np.abs(matrix), np.angle(matrix)]
+        cmaps = ["gray", "gray", "gray", "twilight"]
+        norms = [re_norm, im_norm, abs_norm, arg_norm]
+        titles = ["Re", "Im", "|z|", "arg(z)"]
+        for col in range(4):
+            ax = fig.add_subplot(gs[row, col])
+            im = ax.imshow(panels[col], cmap=cmaps[col], norm=norms[col])
+            if row == 0:
+                ax.set_title(titles[col])
+                fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if col == 0:
+                ax.set_ylabel(label, fontsize=7)
+    caption = title if not subtitle else f"{title}\n{subtitle}"
+    fig.suptitle(caption)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGB')
