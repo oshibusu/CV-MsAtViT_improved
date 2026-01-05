@@ -31,22 +31,51 @@ def padWithZeros(X, margin=2):
     return newX
 
 def createImageCubes(X, y, windowSize=5, removeZeroLabels = True):
+    # Use float32 to save memory if original is not critical, but complex64 is requested.
+    # Count valid pixels first to avoid massive pre-allocation
     margin = int((windowSize - 1) / 2)
     zeroPaddedX = padWithZeros(X, margin=margin)
-    # split patches
-    patchesData = np.zeros((X.shape[0] * X.shape[1], windowSize, windowSize, X.shape[2]), dtype=('complex64'))
-    patchesLabels = np.zeros((X.shape[0] * X.shape[1]))
-    patchIndex = 0
-    for r in range(margin, zeroPaddedX.shape[0] - margin):
-        for c in range(margin, zeroPaddedX.shape[1] - margin):
-            patch = zeroPaddedX[r - margin:r + margin + 1, c - margin:c + margin + 1]   
-            patchesData[patchIndex, :, :, :] = patch
-            patchesLabels[patchIndex] = y[r-margin, c-margin]
-            patchIndex = patchIndex + 1
+    
     if removeZeroLabels:
-        patchesData = patchesData[patchesLabels>0,:,:,:]
-        patchesLabels = patchesLabels[patchesLabels>0]
+        # Get coordinates of valid labels
+        r_idx, c_idx = np.nonzero(y > 0)
+        num_samples = len(r_idx)
+    else:
+        # All pixels
+        num_samples = X.shape[0] * X.shape[1]
+        r_idx, c_idx = np.indices((X.shape[0], X.shape[1]))
+        r_idx = r_idx.flatten()
+        c_idx = c_idx.flatten()
+
+    print(f"Generating patches for {num_samples} samples...")
+    
+    patchesData = np.zeros((num_samples, windowSize, windowSize, X.shape[2]), dtype=('complex64'))
+    patchesLabels = np.zeros((num_samples))
+    
+    for i in range(num_samples):
+        # r, c are original coordinates. In padded image, we shift by margin.
+        r = r_idx[i]
+        c = c_idx[i]
+        
+        # Patch coordinates in padded image
+        # Padding adds 'margin' to top/left. 
+        # So pixel (r,c) in original is at (r+margin, c+margin) in padded.
+        # Patch window centers at (r+margin, c+margin), so slice is from r to r + 2*margin + 1?
+        # Let's trace original logic:
+        # Original: loop r from margin to ..; patch = zeroPaddedX[r-margin : r+margin+1, ...]
+        # Here r is coordinate in padded image.
+        # Our r, c are from original unpadded y.
+        # Equivalent r_padded = r + margin.
+        # Slice start = r_padded - margin = r + margin - margin = r
+        # Slice end = r_padded + margin + 1 = r + 2*margin + 1 = r + windowSize
+        
+        patch = zeroPaddedX[r : r + windowSize, c : c + windowSize]
+        patchesData[i, :, :, :] = patch
+        patchesLabels[i] = y[r, c]
+        
+    if removeZeroLabels:
         patchesLabels -= 1
+        
     return patchesData, patchesLabels
 
 def AA_andEachClassAccuracy(confusion_matrix):
