@@ -344,6 +344,12 @@ def parse_args():
         choices=["FP1", "FP2"],
         help="Flight path for Baltrum dataset (default: FP1)",
     )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=200000,
+        help="Max samples to use for training to avoid OOM (default: 200000). Set to -1 for all.",
+    )
     return parser.parse_args()
 
 
@@ -381,9 +387,12 @@ def main():
 
     data = Standardize_data(data)
 
-    X_coh, y = createImageCubes(data, gt, window_size)
+    # Handle max_samples logic
+    max_samples = args.max_samples if args.max_samples > 0 else None
+    
+    X_coh, y = createImageCubes(data, gt, window_size, max_samples=max_samples)
     X_coh = np.expand_dims(X_coh, axis=4)
-
+    
     X_train, X_test, y_train, y_test = splitTrainTestSet(X_coh, y, test_ratio)
     del X_coh  # save RAM
 

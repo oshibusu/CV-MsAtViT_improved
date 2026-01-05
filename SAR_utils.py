@@ -30,7 +30,7 @@ def padWithZeros(X, margin=2):
     newX[x_offset:X.shape[0] + x_offset, y_offset:X.shape[1] + y_offset, :] = X
     return newX
 
-def createImageCubes(X, y, windowSize=5, removeZeroLabels = True):
+def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=200000):
     # Use float32 to save memory if original is not critical, but complex64 is requested.
     # Count valid pixels first to avoid massive pre-allocation
     margin = int((windowSize - 1) / 2)
@@ -39,13 +39,21 @@ def createImageCubes(X, y, windowSize=5, removeZeroLabels = True):
     if removeZeroLabels:
         # Get coordinates of valid labels
         r_idx, c_idx = np.nonzero(y > 0)
-        num_samples = len(r_idx)
     else:
         # All pixels
-        num_samples = X.shape[0] * X.shape[1]
         r_idx, c_idx = np.indices((X.shape[0], X.shape[1]))
         r_idx = r_idx.flatten()
         c_idx = c_idx.flatten()
+        
+    num_samples = len(r_idx)
+    
+    # Subsampling to avoid OOM
+    if max_samples is not None and num_samples > max_samples:
+        print(f"Subsampling data: reducing {num_samples} samples to {max_samples}...")
+        indices = np.random.choice(num_samples, max_samples, replace=False)
+        r_idx = r_idx[indices]
+        c_idx = c_idx[indices]
+        num_samples = max_samples
 
     print(f"Generating patches for {num_samples} samples...")
     
@@ -56,18 +64,6 @@ def createImageCubes(X, y, windowSize=5, removeZeroLabels = True):
         # r, c are original coordinates. In padded image, we shift by margin.
         r = r_idx[i]
         c = c_idx[i]
-        
-        # Patch coordinates in padded image
-        # Padding adds 'margin' to top/left. 
-        # So pixel (r,c) in original is at (r+margin, c+margin) in padded.
-        # Patch window centers at (r+margin, c+margin), so slice is from r to r + 2*margin + 1?
-        # Let's trace original logic:
-        # Original: loop r from margin to ..; patch = zeroPaddedX[r-margin : r+margin+1, ...]
-        # Here r is coordinate in padded image.
-        # Our r, c are from original unpadded y.
-        # Equivalent r_padded = r + margin.
-        # Slice start = r_padded - margin = r + margin - margin = r
-        # Slice end = r_padded + margin + 1 = r + 2*margin + 1 = r + windowSize
         
         patch = zeroPaddedX[r : r + windowSize, c : c + windowSize]
         patchesData[i, :, :, :] = patch
