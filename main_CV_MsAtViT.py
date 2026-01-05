@@ -490,26 +490,35 @@ def main():
     print("Kappa = ", format((kappa) * 100, ".2f"))
 
     # Create the predicted class map
+    # Create the predicted class map
+    # Note: If max_samples was used in SAR_utils (default 200k), X_coh_full will be smaller than full image.
+    # We must check if we can reshape.
     del X_train, X_test
-    X_coh_full, _ = createImageCubes(data, gt, window_size, removeZeroLabels=False)
-    X_coh_full = np.expand_dims(X_coh_full, axis=4)
+    X_coh_full, _ = createImageCubes(data, gt, window_size, removeZeroLabels=False, max_samples=200000) 
+    # Calling with consistent max_samples to prevent OOM, though this means full map is impossible this way.
+    
+    if X_coh_full.shape[0] != gt.size:
+        print(f"[WARN] Skipping full map generation: Subsampled data size ({X_coh_full.shape[0]}) does not match full image size ({gt.size}).")
+        print("To generate a full map, OOM-safe sliding window inference is required (not enabled).")
+    else:
+        X_coh_full = np.expand_dims(X_coh_full, axis=4)
 
-    Y_pred_full = predict_by_batching(
-        model, X_coh_full, max(1, X_coh_full.shape[0] // 16)
-    )
-    y_pred_full = (np.argmax(Y_pred_full, axis=1)).astype(np.uint8)
+        Y_pred_full = predict_by_batching(
+            model, X_coh_full, max(1, X_coh_full.shape[0] // 16)
+        )
+        y_pred_full = (np.argmax(Y_pred_full, axis=1)).astype(np.uint8)
 
-    Y_pred_map = np.reshape(y_pred_full, gt.shape) + 1
+        Y_pred_map = np.reshape(y_pred_full, gt.shape) + 1
 
-    name = "CV_MsAtViT_Full"
-    sio.savemat(name + ".mat", {name: Y_pred_map})
+        name = "CV_MsAtViT_Full"
+        sio.savemat(name + ".mat", {name: Y_pred_map})
 
-    gt_binary = gt.copy()
-    gt_binary[gt_binary > 0] = 1
-    new_map = Y_pred_map * gt_binary
+        gt_binary = gt.copy()
+        gt_binary[gt_binary > 0] = 1
+        new_map = Y_pred_map * gt_binary
 
-    name = "CV_MsAtViT"
-    sio.savemat(name + ".mat", {name: new_map})
+        name = "CV_MsAtViT"
+        sio.savemat(name + ".mat", {name: new_map})
 
     # Save weights for downstream visualization
     weights_path = os.path.join(ckpt_dir, f"CV_MsAtViT_{dataset_tag}_weights.h5")
