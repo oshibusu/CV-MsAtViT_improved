@@ -204,6 +204,38 @@ def load_data(name):
 
         labels = sio.loadmat('Datasets/Oberpfaffenhofen/Oberpfaffenhofen_gt.mat')['gt']
 
+
+    elif name.startswith('Baltrum'):
+        # Expected format: Baltrum_{Band}_{FP} (e.g., Baltrum_S_FP1)
+        _, band, fp = name.split('_')
+        base_path = Path(f'Datasets/Baltrum/dataset/Pol-InSAR-Island_updated/data/{fp}/{band}/T6')
+        label_base_path = Path(f'Datasets/Baltrum/dataset/Pol-InSAR-Island_updated/label/{fp}')
+
+        # Load T3 components (6 channels)
+        # Using T3 subset from T6: T11, T22, T33 (Real) and T12, T13, T23 (Complex)
+        first_read = envi.open(base_path / 'T11.bin.hdr', base_path / 'T11.bin').read_band(0)
+        T = np.zeros(first_read.shape + (6,), dtype=np.complex64)
+
+        T[:, :, 0] = first_read # T11 (Real)
+        T[:, :, 1] = envi.open(base_path / 'T22.bin.hdr', base_path / 'T22.bin').read_band(0) # T22 (Real)
+        T[:, :, 2] = envi.open(base_path / 'T33.bin.hdr', base_path / 'T33.bin').read_band(0) # T33 (Real)
+        
+        # Off-diagonal elements (Complex)
+        T[:, :, 3] = envi.open(base_path / 'T12_real.bin.hdr', base_path / 'T12_real.bin').read_band(0) + \
+                     1j * envi.open(base_path / 'T12_imag.bin.hdr', base_path / 'T12_imag.bin').read_band(0)
+        T[:, :, 4] = envi.open(base_path / 'T13_real.bin.hdr', base_path / 'T13_real.bin').read_band(0) + \
+                     1j * envi.open(base_path / 'T13_imag.bin.hdr', base_path / 'T13_imag.bin').read_band(0)
+        T[:, :, 5] = envi.open(base_path / 'T23_real.bin.hdr', base_path / 'T23_real.bin').read_band(0) + \
+                     1j * envi.open(base_path / 'T23_imag.bin.hdr', base_path / 'T23_imag.bin').read_band(0)
+
+        # Load and merge labels
+        label_train = envi.open(label_base_path / 'label_train.bin.hdr', label_base_path / 'label_train.bin').read_band(0)
+        label_test = envi.open(label_base_path / 'label_test.bin.hdr', label_base_path / 'label_test.bin').read_band(0)
+        
+        # Merge labels: Since classes are >0 and non-overlapping in valid pixels, summation merges them.
+        # Assuming unassigned is 0 in both. If a pixel is 0 in train and X in test, sum is X.
+        labels = label_train + label_test
+
     else:
         print("Incorrect data name")
         

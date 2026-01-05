@@ -332,6 +332,18 @@ def parse_args():
         default="",
         help="Depth indices to record (default all)",
     )
+    parser.add_argument(
+        "--baltrum-band",
+        default="S",
+        choices=["L", "S"],
+        help="Band for Baltrum dataset (default: S)",
+    )
+    parser.add_argument(
+        "--baltrum-fp",
+        default="FP1",
+        choices=["FP1", "FP2"],
+        help="Flight path for Baltrum dataset (default: FP1)",
+    )
     return parser.parse_args()
 
 
@@ -354,7 +366,11 @@ def predict_by_batching(model, input_tensor, batch_size):
 
 def main():
     args = parse_args()
+    args = parse_args()
     dataset = args.dataset
+    if dataset == 'Baltrum':
+        dataset = f"Baltrum_{args.baltrum_band}_{args.baltrum_fp}"
+        
     dataset_tag = _dataset_tag(dataset)
     window_size = args.window_size
     test_ratio = args.test_ratio

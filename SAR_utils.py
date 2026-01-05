@@ -64,6 +64,9 @@ def target(name):
                         'Wheat 3', 'Barley', 'Buildings']
     elif name == 'SF':
         target_names = ['Unassigned', 'Bare Soil', 'Mountain', 'Water', 'Urban', 'Vegetation']
+    elif 'Baltrum' in name:
+        target_names = ['Unassigned', 'Tidal flat', 'Water', 'Coastal shrub', 'Dense, high vegetation', 'White dune', 
+                        'Peat bog', 'Grey dune', 'Couch grass', 'Upper saltmarsh', 'Lower saltmarsh', 'Sand', 'Settlement']
         
     return target_names 
     
@@ -74,6 +77,8 @@ def num_classes(dataset):
         output_units = 5
     elif dataset == 'ober' or dataset == 'ober_real':
         output_units = 3
+    elif 'Baltrum' in dataset:
+        output_units = 12
     
     return output_units
 
