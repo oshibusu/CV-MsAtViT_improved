@@ -294,7 +294,7 @@ def parse_args():
     parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
     parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
     parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
-    parser.add_argument("--epochs", type=int, default=100, help="Maximum training epochs")
+    parser.add_argument("--epochs", type=int, default=300, help="Maximum training epochs")
     parser.add_argument(
         "--learning-rate",
         type=float,
