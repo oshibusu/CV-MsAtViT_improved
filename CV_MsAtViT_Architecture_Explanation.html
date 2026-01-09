@@ -1,0 +1,448 @@
+<!DOCTYPE html><html><head><title></title><meta charset="utf-8"><style>* {
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 100%;
+}
+
+body {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+		'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	line-height: 1.6;
+	font-size: 0.6875em; /* 11 pt */
+	color: #111;
+	margin: 0;
+}
+
+body > :first-child {
+	padding-top: 0;
+	margin-top: 0;
+}
+
+body > :last-child {
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0;
+	padding: 0.5em 0 0.25em;
+}
+
+h5,
+h6 {
+	padding: 0;
+}
+
+h5 {
+	font-size: 1em;
+}
+
+h6 {
+	font-size: 0.875em;
+	text-transform: uppercase;
+}
+
+p {
+	margin: 0.25em 0 1em;
+}
+
+blockquote {
+	margin: 0.5em 0 1em;
+	padding-left: 0.5em;
+	padding-right: 1em;
+	border-left: 4px solid gainsboro;
+	font-style: italic;
+}
+
+ul,
+ol {
+	margin: 0;
+	margin-left: 1em;
+	padding: 0 1.5em 0.5em;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code,
+p code,
+li code,
+pre code {
+	background-color: #f8f8f8;
+	padding: 0.1em 0.375em;
+	border: 1px solid #f8f8f8;
+	border-radius: 0.25em;
+	font-family: monospace;
+	font-size: 1.2em;
+}
+
+pre code {
+	display: block;
+	padding: 0.5em;
+}
+
+.page-break {
+	page-break-after: always;
+}
+
+img {
+	max-width: 100%;
+	margin: 1em 0;
+}
+
+table {
+	border-spacing: 0;
+	border-collapse: collapse;
+	display: block;
+	margin: 0 0 1em;
+	width: 100%;
+	overflow: auto;
+}
+
+table th,
+table td {
+	padding: 0.5em 1em;
+	border: 1px solid gainsboro;
+}
+
+table th {
+	font-weight: 600;
+}
+
+table tr {
+	background-color: white;
+	border-top: 1px solid gainsboro;
+}
+
+table tr:nth-child(2n) {
+	background-color: whitesmoke;
+}
+/*# sourceURL=/Users/shibuyayuunin/.npm/_npx/55158e48eb5c59f7/node_modules/md-to-pdf/markdown.css*/</style><style>pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em
+}
+code.hljs {
+  padding: 3px 5px
+}
+/*!
+  Theme: GitHub
+  Description: Light theme as seen on github.com
+  Author: github.com
+  Maintainer: @Hirse
+  Updated: 2021-05-15
+
+  Outdated base version: https://github.com/primer/github-syntax-light
+  Current colors taken from GitHub's CSS
+*/
+.hljs {
+  color: #24292e;
+  background: #ffffff
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  /* prettylights-syntax-keyword */
+  color: #d73a49
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  /* prettylights-syntax-entity */
+  color: #6f42c1
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  /* prettylights-syntax-constant */
+  color: #005cc5
+}
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  /* prettylights-syntax-string */
+  color: #032f62
+}
+.hljs-built_in,
+.hljs-symbol {
+  /* prettylights-syntax-variable */
+  color: #e36209
+}
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  /* prettylights-syntax-comment */
+  color: #6a737d
+}
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  /* prettylights-syntax-entity-tag */
+  color: #22863a
+}
+.hljs-subst {
+  /* prettylights-syntax-storage-modifier-import */
+  color: #24292e
+}
+.hljs-section {
+  /* prettylights-syntax-markup-heading */
+  color: #005cc5;
+  font-weight: bold
+}
+.hljs-bullet {
+  /* prettylights-syntax-markup-list */
+  color: #735c0f
+}
+.hljs-emphasis {
+  /* prettylights-syntax-markup-italic */
+  color: #24292e;
+  font-style: italic
+}
+.hljs-strong {
+  /* prettylights-syntax-markup-bold */
+  color: #24292e;
+  font-weight: bold
+}
+.hljs-addition {
+  /* prettylights-syntax-markup-inserted */
+  color: #22863a;
+  background-color: #f0fff4
+}
+.hljs-deletion {
+  /* prettylights-syntax-markup-deleted */
+  color: #b31d28;
+  background-color: #ffeef0
+}
+.hljs-char.escape_,
+.hljs-link,
+.hljs-params,
+.hljs-property,
+.hljs-punctuation,
+.hljs-tag {
+  /* purposely ignored */
+  
+}/*# sourceURL=/Users/shibuyayuunin/.npm/_npx/55158e48eb5c59f7/node_modules/highlight.js/styles/github.css*/</style></head>
+	<body class="">
+		<h1 id="cv-msatvit-モデルアーキテクチャ詳細解説">CV-MsAtViT: モデルアーキテクチャ詳細解説</h1>
+<p>このドキュメントでは、<code>CV-MsAtViT</code> (Complex-Valued Multi-scale Attention ViT) のアーキテクチャについて、コードと論文の文脈に基づき数式レベルで解説します。特に初学者が躓きやすいポイントを「Q&amp;A」形式で詳述します。</p>
+<h2 id="1-処理フロー概要">1. 処理フロー概要</h2>
+<p>モデル全体のデータの流れは以下の通りです。</p>
+<ol>
+<li><strong>Input</strong>: PolSARデータ ($15 \times 15$ パッチ, 6チャンネル, 複素数)</li>
+<li><strong>3D Multi-Scale Feature Extraction</strong>: 3つの異なる視点（空間、偏波、同時）で特徴抽出</li>
+<li><strong>Reshape &amp; 2D Conv</strong>: 3D特徴量を2D平面上の特徴量へ圧縮・変換</li>
+<li><strong>Coordinate Attention</strong>: 重要な空間位置・特徴を強調</li>
+<li><strong>Complex ViT (Vision Transformer)</strong>: パッチ分割して大域的な関係性を学習</li>
+<li><strong>MLP Head</strong>: クラス分類</li>
+</ol>
+<pre><code class="hljs mermaid">graph TD
+    Input["Input Patch&lt;br/&gt;(15, 15, 6, 1)"] --&gt; Branch1["Spatial Branch&lt;br/&gt;Conv3D (3,3,1)"]
+    Input --&gt; Branch2["Polar/Spectral Branch&lt;br/&gt;Conv3D (1,1,3)"]
+    Input --&gt; Branch3["Joint Branch&lt;br/&gt;Conv3D (3,3,3)"]
+    Branch1 --&gt; Concat[Concatenation]
+    Branch2 --&gt; Concat
+    Branch3 --&gt; Concat
+    Concat --&gt; Reshape["Reshape to 2D&lt;br/&gt;(15, 15, 144)"]
+    Reshape --&gt; Conv2D["Conv2D Reduction&lt;br/&gt;(15, 15, 24)"]
+    Conv2D --&gt; CoordAtt[Coordinate Attention]
+    CoordAtt --&gt; Patches["Patch Partition&lt;br/&gt;(3x3 patches)"]
+    Patches --&gt; Encoder[Complex Transformer Encoder]
+    Encoder --&gt; MLP[MLP Head]
+    MLP --&gt; Output[Class Probabilities]
+</code></pre>
+<hr>
+<h2 id="2-各ステップの数式定義">2. 各ステップの数式定義</h2>
+<p>入力データを $X \in \mathbb{C}^{H \times W \times D}$ とします。ここで $H=W=15$ (Window Size), $D=6$ (PolSAR Features) です。</p>
+<h3 id="21-multi-scale-feature-extractor-3-branches">2.1 Multi-Scale Feature Extractor (3 Branches)</h3>
+<p>入力は4次元テンソル $\mathcal{X} \in \mathbb{C}^{H \times W \times D \times 1}$ として扱われます（最後の1はInput Channel）。</p>
+<ol>
+<li><p><strong>Spatial Branch ($Y_S$)</strong>: 空間的なテクスチャ情報を抽出。
+$$Y_S = \sigma(\text{Conv3D}_{3 \times 3 \times 1}(\mathcal{X}))$$
+ここで $\sigma$ は <strong><code>cart_relu</code> (Cartesian ReLU)</strong> 活性化関数です。実部と虚部それぞれに ReLU を適用します ($\text{ReLU}(x) + j\text{ReLU}(y)$)。
+カーネルサイズ $(3, 3, 1)$ は、偏波（深さ）方向には混ぜず、空間方向 ($H, W$) のみ畳み込みます。
+<strong>出力サイズ</strong>: $(15, 15, 6, 8)$</p>
+</li>
+<li><p><strong>Polar/Spectral Branch ($Y_P$)</strong>: 偏波間の相関（散乱メカニズム）を抽出。
+$$Y_P = \sigma(\text{Conv3D}_{1 \times 1 \times 3}(\mathcal{X}))$$
+カーネルサイズ $(1, 1, 3)$ は、空間的には1画素のみを見つつ、深さ方向（偏波チャンネル）の局所的な関係性を学習します。
+<strong>出力サイズ</strong>: $(15, 15, 6, 8)$</p>
+</li>
+<li><p><strong>Joint Branch ($Y_J$)</strong>: 空間と偏波を同時に考慮。
+$$Y_J = \sigma(\text{Conv3D}_{3 \times 3 \times 3}(\mathcal{X}))$$
+<strong>出力サイズ</strong>: $(15, 15, 6, 8)$</p>
+</li>
+</ol>
+<p>これらを結合します：
+$$Y_{concat} = \text{Concat}(Y_S, Y_P, Y_J)$$
+<strong>出力サイズ</strong>: $(15, 15, 6, 24)$ ($8+8+8=24$)</p>
+<h3 id="22-reshape--2d-projection">2.2 Reshape &amp; 2D Projection</h3>
+<p>3Dの情報を2Dの特徴マップに投影します。深さ方向 $D$ と 特徴数 $C$ をフラットにします。
+$$Z_{2D} = \text{Reshape}(Y_{concat}) \in \mathbb{C}^{H \times W \times (D \cdot 3F_{out})}$$
+<strong>フラット化の順序</strong>: 
+<code>Reshape</code> は直前の次元から順に並べます。つまり、以下の順序で並びます。
+<code>[Depth 1 の全24特徴量, Depth 2 の全24特徴量, ..., Depth 6 の全24特徴量]</code>
+これにより、深さごとの情報は保たれつつ、チャンネル次元として一列に展開されます。</p>
+<p>その後、Conv2Dでチャンネル数を <strong>144 → 24</strong> に圧縮・統合します。
+$$Z = \sigma(\text{Conv2D}(Z_{2D})) \in \mathbb{C}^{H \times W \times 24}$$
+<strong>仕組み</strong>:
+前のステップ（Reshape）により、チャンネル数は $6(\text{Depth}) \times 24(\text{Filters}) = 144$ になっています。
+これに対して <code>filters=24</code> の Conv2D ($3 \times 3$ カーネル) を適用します。
+これは、<strong>「144枚すべての層の情報を、重み付けして足し合わせ（線形結合）、新しい24枚の層に要約する」</strong> という処理です。
+これにより、空間的に分離されていた「深さごとの特徴」や「Branchごとの特徴」が、各画素位置において相互に混ざり合い、統合された24次元の特徴量ベクトルへと変換されます。</p>
+<h3 id="23-coordinate-attention-coordatt">2.3 Coordinate Attention (CoordAtt)</h3>
+<p>Reshape・Conv2Dの後に適用される、重要な特徴強調モジュールです。
+通常のGlobal Average Pooling（空間全体の平均）とは異なり、<strong>「縦方向の平均」と「横方向の平均」を別々に計算</strong>するのが特徴です。</p>
+<ol>
+<li><strong>Coordinate Pooling (X, Y)</strong>:
+入力特徴量マップに対して、$(H, 1)$ サイズと $(1, W)$ サイズのプール操作を行います。
+これにより、<strong>「高さ方向の位置情報を保ったまま横につぶしたベクトル」</strong>と<strong>「横方向の位置情報を保ったまま縦につぶしたベクトル」</strong>の2つが生成されます。</li>
+<li><strong>Interaction &amp; Sigmoid</strong>:
+これらを一度結合してConv2Dを通した後、再び分割し、シグモイド関数 (<code>cart_sigmoid</code>) を適用して [0, 1] の重み（Attention Map）を作ります。</li>
+<li><strong>Reweighting</strong>:
+生成された「縦の重み」と「横の重み」を元の入力に掛け算します。
+$$Y = X \times A_h \times A_w$$
+これにより、モデルは「画像の<strong>どこに</strong>重要な特徴（例：境界線や特定の物体）があるか」という位置情報を正確に捉えることができます。</li>
+</ol>
+<h3 id="24-complex-vision-transformer">2.4 Complex Vision Transformer</h3>
+<p>画像をパッチ $x_p \in \mathbb{C}^{N \times (P^2 \cdot C)}$ に分割し、位置埋め込み $E_{pos}$ を加えます。
+$$z_0 = [x_p^1 E; x_p^2 E; \dots; x_p^N E] + E_{pos}$$</p>
+<p>Transformerブロック内では、実部と虚部で分けてAttentionを計算し、再結合します（Split-Attentionのような挙動）。
+$$\text{MHSA}<em>{real} = \text{Softmax}(\frac{Q_r K_r^T}{\sqrt{d}})V_r$$
+$$\text{MHSA}</em>{imag} = \text{Softmax}(\frac{Q_i K_i^T}{\sqrt{d}})V_i$$
+結合: $\text{MHSA}<em>{out} = \text{MHSA}</em>{real} + j \cdot \text{MHSA}_{imag}$
+これらを結合して次の層へ渡します（実装上は実部・虚部独立に計算して <code>tf.complex</code> で結合しています）。</p>
+<h2 id="q-transformer詳細解説">Q. Transformer詳細解説</h2>
+<p><strong>Q: パッチサイズはどうなっていますか？</strong>
+<strong>A:</strong> <code>patch_size=3</code> が指定されています。
+Coordinate Attentionを経た $15 \times 15$ の特徴マップを、**$3 \times 3$ の小さなパッチ** に切り分けます。
+つまり、縦横 $15/3 = 5$ なので、合計 $5 \times 5 = 25$ 個のパッチ（トークン）が生成されます。</p>
+<p><strong>Q: 位置埋め込みとは何ですか？ ワンホットベクトルですか？</strong>
+<strong>A:</strong> いいえ、ワンホットベクトルではなく、<strong>学習可能な密ベクトル（実数の詰まった配列）</strong>です。
+これは <strong>TensorFlow/Kerasの標準機能 (<code>tf.keras.layers.Embedding</code>)</strong> として備わっています。</p>
+<ol>
+<li>パッチに「0, 1, 2, ..., 24」という整数の番号（ID）を振ります。</li>
+<li><code>layers.Embedding</code> 層にこのIDを渡すと、内部で管理している「辞書（重み行列）」から、対応するベクトルを自動で取り出してくれます。</li>
+<li>この「辞書の中身」自体も、学習プロセス（逆伝播）の中で自動的に最適な値に更新されていきます。
+つまり、プログラマは「IDを渡す」だけで、あとはライブラリが良きように学習・変換してくれます。</li>
+</ol>
+<p><strong>Q: MHSAの実部・虚部結合は、単純に足しているだけですか？</strong>
+<strong>A:</strong> はい、その通りです。
+「実部だけの世界」と「虚部だけの世界」でそれぞれAttention（どのパッチに注目すべきか）を計算し、最後に実部を実部、虚部を虚部として <code>tf.complex(real, imag)</code> で合体させています。</p>
+<p><strong>Q: そもそもMHSA (Multi-Head Self-Attention) とは何ですか？</strong>
+<strong>A:</strong> 「自分自身のどの部分に注目すべきか」を計算する機構です。</p>
+<ol>
+<li><p><strong>分身の術（Multi-Head）</strong>:
+例えば32次元の特徴量ベクトルを、8次元 $\times$ 4つのヘッド（分身）に分割します。
+それぞれのヘッドは<strong>独立した重み</strong>を持っており、互いに相談することなく勝手に学習を進めます。</p>
+</li>
+<li><p><strong>役割分担の発生</strong>:
+最初は全員ランダムですが、学習が進むにつれ、全員が同じこと（例: 形を見る）をしていてもLossが下がらないため、自然と<strong>「僕はエッジを見る」「私は色の濃さを見る」</strong>といった役割分担が発生します（これを「豊かな特徴を捉える」と表現します）。
+※人間が「お前はテクスチャを見ろ」と命令するわけではなく、結果的にそうなります。</p>
+</li>
+<li><p><strong>Attention計算</strong>:
+各ヘッドが独自に <strong>Query(質問)</strong> と <strong>Key(索引)</strong> の内積をとり、どこに注目するかを決め、<strong>Value(内容)</strong> を集めます。
+最後に全員の成果を持ち寄って結合 (Concatenate) し、元の32次元に戻します。</p>
+</li>
+</ol>
+<p><strong>Q: Q, K, V はどのように決まるのですか？</strong>
+<strong>A:</strong> 入力であるパッチの特徴量ベクトル ($z$) に対して、<strong>3つの異なる重み行列 (Dense層)</strong> を掛け算して作られます。
+コード上では <code>layers.MultiHeadAttention()(x, x)</code> という形で呼び出されていますが、この内部で以下のような計算が行われています。</p>
+<ul>
+<li>$Q = z \times W_Q$ （$W_Q$: 学習される重み）</li>
+<li>$K = z \times W_K$ （$W_K$: 学習される重み）</li>
+<li>$V = z \times W_V$ （$W_V$: 学習される重み）
+つまり、<strong>「元のデータ $z$ を、Q用、K用、V用の空間へそれぞれ変換（射影）する」</strong> ことで生成されます。
+これらは全てニューラルネットワークのパラメータであり、学習によって「良いQ, K, Vの作り方」が最適化されていきます。</li>
+</ul>
+<h2 id="3-qa-解説">3. Q&amp;A 解説</h2>
+<h3 id="入力データの物理的意味と次元数">入力データの物理的意味と次元数</h3>
+<p><strong>Q: 入力データは何ですか？</strong>
+<strong>A:</strong> <strong>Polarimetric SAR (PolSAR)</strong> データの <strong>Coherency Matrix ($T_3$)</strong> の要素です。
+$T_3$ 行列は $3 \times 3$ のエルミート行列で、地表面の散乱特性（表面散乱、体積散乱など）を含んでいます。</p>
+<p><strong>Q: なぜ深さ（Channels）が「6」なのですか？</strong>
+<strong>A:</strong> $T_3$ 行列の独立な成分を取り出しているためです。
+$T_3$ 行列は対称性があるため、上三角成分のみで情報を表現できます。</p>
+<ul>
+<li>$T_{11}, T_{22}, T_{33}$ (対角成分: 実数。散乱パワーを表す)</li>
+<li>$T_{12}, T_{13}, T_{23}$ (非対角成分: 複素数。散乱成分間の相関を表す)
+<code>Load_Data.py</code> ではこれらを積み重ねて <code>(H, W, 6)</code> のテンソルを作成しています。対角成分の実数も、便宜上複素数型（虚部0）として扱われています。</li>
+</ul>
+<p><strong>Q: 元のデータセットには何が含まれていますか？</strong>
+<strong>A:</strong> Flevolandなどのデータセットは、広大なエリアのSAR画像一枚です。ここから <code>Window Size</code> (例: $15 \times 15$) のパッチを切り出し、一つのサンプルとして扱います。</p>
+<h3 id="feature-extractorの内部処理">Feature Extractorの内部処理</h3>
+<p><strong>Q: なぜ3種類のConv3Dカーネルを使うのですか？</strong>
+<strong>A:</strong> SAR画像特有の<strong>「空間情報」</strong>と<strong>「偏波（物理）情報」</strong>を効率よく捉えるためです。
+Conv3Dは、空間（縦横）だけでなく、<strong>深さ（チャンネル）方向にもスライドしながら</strong>計算を行う点に注意してください。</p>
+<ul>
+<li><strong>Spatial (3x3x1)</strong>: 深さ方向のカーネルサイズが1です。つまり、<strong>6つのチャンネルそれぞれに対して、混ざり合うことなく個別に</strong>空間フィルタ（3x3）が適用されます。深さ方向にもスライドしますが、各層は独立して処理されるイメージです。</li>
+<li><strong>Polar (1x1x3)</strong>: 空間的には1画素ですが、深さ方向に厚みがあります。スライドする際、<strong>「自分と前後のチャンネル」</strong>の値を同時に見ることで、偏波パラメータ間の局所的な関係（相関）を学習します。</li>
+<li><strong>Joint (3x3x3)</strong>: 上記両方を同時に行います。</li>
+</ul>
+<p>なお、<code>padding="same"</code> の設定により、Conv3Dの出力も入力と同じ深さ（6層）が維持され、情報は保持されたまま次の結合層へ進みます。</p>
+<p><strong>Q: 次元圧縮はどう行われていますか？</strong>
+<strong>A:</strong> <code>layers.Reshape</code> によって、3Dの「深さ ($D=6$)」次元を「チャンネル」次元に強制的に統合しています。
+これにより、後続のレイヤーは $15 \times 15$ の2D画像として（ただしチャンネル数は多い状態で）処理が可能になります。これは計算コスト削減と、既存の2D Vision Transformer構造への適応のためです。</p>
+<h3 id="attention機構--メインモジュール">Attention機構 / メインモジュール</h3>
+<p><strong>Q: Coordinate Attentionとは何で、CNNとどう違いますか？</strong>
+<strong>A:</strong> 通常のCNNは「局所的」な情報しか見ませんが、Attentionは「どこを見るべきか」を動的に重み付けします。
+ここでのCoordinate Attentionは、<strong>「横方向の平均」と「縦方向の平均」を別々に計算</strong>し、それらを相互作用させることで、効率的に位置情報を捉える仕組みです。</p>
+<ul>
+<li><strong>物理的意味</strong>: 「画像のこのあたり（座標）に重要な地物がある」という情報を、複素数の振幅として強調します。</li>
+</ul>
+<p><strong>Q: Query, Key, Value は物理的に何を表しますか？</strong>
+<strong>A:</strong></p>
+<ul>
+<li><strong>Query (質問)</strong>: 「このパッチは、他のどのパッチと関係がありそうか？」</li>
+<li><strong>Key (索引)</strong>: 「私はこういう特徴（例: 建物の角）を持っています」</li>
+<li><strong>Value (内容)</strong>: そのパッチが持つ実際の特徴量。
+Attention計算により、QueryとKeyがマッチした（似ている、あるいは関連性が高い）場所のValueが集められます。これにより、<strong>「画像の端にある森林の特徴」を使って「中心にある森林の分類」を補正する</strong>といった大域的な推論が可能になります。</li>
+</ul>
+<h3 id="正規化とトークン化">正規化とトークン化</h3>
+<p><strong>Q: なぜLayerNormを入れるのですか？</strong>
+<strong>A:</strong> 学習を安定させるためです。特に複素数ネットワークでは値の範囲が発散しやすいため、各層の入力を平均0分散1に揃えることが重要です。ここでは実部と虚部それぞれに対して正規化を行っています。</p>
+<p><strong>Q: トークン化の手順は？</strong>
+<strong>A:</strong></p>
+<ol>
+<li>$15 \times 15$ の画像を $3 \times 3$ の小さなパッチに切り刻みます。（計25個のパッチ）</li>
+<li>各パッチを平坦化（Flatten）し、線形層（ComplexDense）を通して <code>projection_dim</code> (32次元) のベクトルに変換します。</li>
+<li>これで、「25個の32次元ベクトル」の列ができます。これがTransformerへの入力トークンです。</li>
+</ol>
+<h3 id="学習プロセス">学習プロセス</h3>
+<p><strong>Q: 1 epoch, 1 batch, 1 step の関係性は？</strong>
+<strong>A:</strong></p>
+<ul>
+<li><strong>1 Step</strong>: 定められた <code>Batch Size</code> (例: 128枚のパッチ画像) をモデルに入力し、誤差を計算して<strong>重みを1回更新</strong>すること。</li>
+<li><strong>1 Epoch</strong>: データセット内の全ての学習用パッチを1回使い切ること。データの総数が $N$ なら、$\lceil N / \text{BatchSize} \rceil$ Steps で 1 Epoch です。</li>
+</ul>
+<p><strong>Q: 重み更新のタイミングは？</strong>
+<strong>A:</strong> バッチごとの計算が終わるたびに即座に行われます（Online Learning / Mini-batch SGD）。エポックの最後ではありません。Lossがガクンと下がるように見えたのは、この各ステップでの改善がエポック終了時にまとめて平均化されていたためです。</p>
+
+	
+
+</body></html>
