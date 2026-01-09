@@ -494,7 +494,7 @@ def main():
     # Note: If max_samples was used in SAR_utils (default 200k), X_coh_full will be smaller than full image.
     # We must check if we can reshape.
     del X_train, X_test
-    X_coh_full, _ = createImageCubes(data, gt, window_size, removeZeroLabels=False, max_samples=200000) 
+    X_coh_full, _ = createImageCubes(data, gt, window_size, removeZeroLabels=False, max_samples=None) 
     # Calling with consistent max_samples to prevent OOM, though this means full map is impossible this way.
     
     if X_coh_full.shape[0] != gt.size:
