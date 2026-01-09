@@ -13,6 +13,7 @@ from cvnn.layers import (
 )
 from SAR_utils import cart_gelu, num_classes
 from CoordAttention import CoordAtt_cmplx
+from ComplexAttention import ComplexMultiHeadAttention
 
 
 def cmplx_multilayer_perceptron(x, hidden_units, dropout_rate):
@@ -125,13 +126,11 @@ def cmplx_ViT(
         x1_r = layers.LayerNormalization(epsilon=1e-6)(tf.math.real(encoded_patches))
         x1_i = layers.LayerNormalization(epsilon=1e-6)(tf.math.imag(encoded_patches))
 
-        attention_output_r = layers.MultiHeadAttention(
+        x1 = tf.complex(x1_r, x1_i)
+        
+        attention_output = ComplexMultiHeadAttention(
             num_heads=num_heads, key_dim=projection_dim, dropout=0.1
-        )(x1_r, x1_r)
-        attention_output_i = layers.MultiHeadAttention(
-            num_heads=num_heads, key_dim=projection_dim, dropout=0.1
-        )(x1_i, x1_i)
-        attention_output = tf.complex(attention_output_r, attention_output_i)
+        )(x1, x1)
 
         x2 = layers.Add()([attention_output, encoded_patches])
 
@@ -223,6 +222,7 @@ CUSTOM_OBJECTS = {
     "cart_gelu": cart_gelu,
     "CoordAtt_cmplx": CoordAtt_cmplx,
     "ComplexSplit": ComplexSplit,
+    "ComplexMultiHeadAttention": ComplexMultiHeadAttention,
 }
 
 # Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError
