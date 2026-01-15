@@ -11,7 +11,7 @@ from cvnn.layers import (
     ComplexAvgPooling2D,
     ComplexBatchNormalization,
 )
-from SAR_utils import cart_gelu, num_classes
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real
 from CoordAttention import CoordAtt_cmplx
 from ComplexAttention import ComplexMultiHeadAttention
 
@@ -197,7 +197,7 @@ def build_msatvit(
         mlp_head_units,
     )
     z = ComplexFlatten()(x)
-    logits = ComplexDense(num_classes(dataset), activation="softmax_real_with_abs")(z)
+    logits = ComplexDense(num_classes(dataset), activation=softmax_real_with_real)(z)
 
     model = tf.keras.Model(inputs=[inputs], outputs=logits)
     model.compile(
@@ -223,6 +223,7 @@ CUSTOM_OBJECTS = {
     "CoordAtt_cmplx": CoordAtt_cmplx,
     "ComplexSplit": ComplexSplit,
     "ComplexMultiHeadAttention": ComplexMultiHeadAttention,
+    "softmax_real_with_real": softmax_real_with_real,
 }
 
 # Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError

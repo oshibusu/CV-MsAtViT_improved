@@ -250,6 +250,10 @@ def cart_gelu(x):
     return output
 
 
+def softmax_real_with_real(x):
+    return tf.nn.softmax(tf.math.real(x))
+
+
 
 
 
