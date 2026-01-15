@@ -43,7 +43,13 @@ def net_flops(model, table=False):
         if ('Add' in str(l) or 'Maximum' in str(l) or 'Concatenate' in str(l)):
             i_shape = l.input[0].get_shape()[1:4].as_list() + [len(l.input)]
             o_shape = l.output.get_shape()[1:4].as_list()
-            flops = (len(l.input) - 1) * i_shape[0] * i_shape[1] * i_shape[2]
+            # Handle None in shape by treating it as 1 or ignoring it for FLOPs calculation logic if feasible
+            # Here we assume spatial dims might be None in dynamic shapes, but for FLOPs we usually need concrete numbers.
+            # If None, default to 1 to avoid crash, though this is an estimation.
+            d0 = i_shape[0] if i_shape[0] is not None else 1
+            d1 = i_shape[1] if i_shape[1] is not None else 1
+            d2 = i_shape[2] if i_shape[2] is not None else 1
+            flops = (len(l.input) - 1) * d0 * d1 * d2
 
         if ('Average' in str(l) and 'pool' not in str(l)):
             i_shape = l.input[0].get_shape()[1:4].as_list() + [len(l.input)]

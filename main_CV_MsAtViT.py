@@ -290,7 +290,7 @@ def save_batch_curve(csv_path, dataset_tag):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train and export CV-MsAtViT")
-    parser.add_argument("--dataset", default="FL_T", help="Dataset identifier (e.g., FL_T, SF, ober)")
+    parser.add_argument("--dataset", default="SF", help="Dataset identifier (e.g., FL_T, SF, ober)")
     parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
     parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
     parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
