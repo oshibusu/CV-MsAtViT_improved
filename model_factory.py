@@ -11,7 +11,7 @@ from cvnn.layers import (
     ComplexAvgPooling2D,
     ComplexBatchNormalization,
 )
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, AmplitudeLayerNormalization
 from CoordAttention import CoordAtt_cmplx
 from ComplexAttention import ComplexMultiHeadAttention
 
@@ -117,16 +117,20 @@ def cmplx_ViT(
     num_heads,
     transformer_units,
     transformer_layers,
+    transformer_layers,
     mlp_head_units,
+    layer_norm_type="amplitude",
 ):
     patches = Patches(patch_size)(x)
     encoded_patches = PatchEncoder(num_patches, projection_dim)(patches)
 
     for _ in range(transformer_layers):
-        x1_r = layers.LayerNormalization(epsilon=1e-6)(tf.math.real(encoded_patches))
-        x1_i = layers.LayerNormalization(epsilon=1e-6)(tf.math.imag(encoded_patches))
-
-        x1 = tf.complex(x1_r, x1_i)
+        if layer_norm_type == "amplitude":
+            x1 = AmplitudeLayerNormalization(epsilon=1e-6)(encoded_patches)
+        else:
+            x1_r = layers.LayerNormalization(epsilon=1e-6)(tf.math.real(encoded_patches))
+            x1_i = layers.LayerNormalization(epsilon=1e-6)(tf.math.imag(encoded_patches))
+            x1 = tf.complex(x1_r, x1_i)
         
         attention_output = ComplexMultiHeadAttention(
             num_heads=num_heads, key_dim=projection_dim, dropout=0.1
@@ -134,9 +138,12 @@ def cmplx_ViT(
 
         x2 = layers.Add()([attention_output, encoded_patches])
 
-        x3_r = layers.LayerNormalization(epsilon=1e-6)(tf.math.real(x2))
-        x3_i = layers.LayerNormalization(epsilon=1e-6)(tf.math.imag(x2))
-        x3 = tf.complex(x3_r, x3_i)
+        if layer_norm_type == "amplitude":
+            x3 = AmplitudeLayerNormalization(epsilon=1e-6)(x2)
+        else:
+            x3_r = layers.LayerNormalization(epsilon=1e-6)(tf.math.real(x2))
+            x3_i = layers.LayerNormalization(epsilon=1e-6)(tf.math.imag(x2))
+            x3 = tf.complex(x3_r, x3_i)
 
         x3 = cmplx_multilayer_perceptron(
             x3, hidden_units=transformer_units, dropout_rate=0.1
@@ -144,13 +151,17 @@ def cmplx_ViT(
 
         encoded_patches = layers.Add()([x3, x2])
 
-    representation_r = layers.LayerNormalization(epsilon=1e-6)(
-        tf.math.real(encoded_patches)
-    )
-    representation_i = layers.LayerNormalization(epsilon=1e-6)(
-        tf.math.imag(encoded_patches)
-    )
-    representation = tf.complex(representation_r, representation_i)
+    
+    if layer_norm_type == "amplitude":
+        representation = AmplitudeLayerNormalization(epsilon=1e-6)(encoded_patches)
+    else:
+        representation_r = layers.LayerNormalization(epsilon=1e-6)(
+            tf.math.real(encoded_patches)
+        )
+        representation_i = layers.LayerNormalization(epsilon=1e-6)(
+            tf.math.imag(encoded_patches)
+        )
+        representation = tf.complex(representation_r, representation_i)
 
     representation = ComplexFlatten()(representation)
     representation = ComplexDropout(0.5)(representation)
@@ -173,6 +184,7 @@ def build_msatvit(
     transformer_layers=4,
     mlp_head_units=None,
     transformer_units=None,
+    layer_norm_type="amplitude",
 ):
     if lr is None:
         lr = 0.0001 if dataset == "ober" else 0.001
@@ -195,6 +207,7 @@ def build_msatvit(
         transformer_units,
         transformer_layers,
         mlp_head_units,
+        layer_norm_type=layer_norm_type,
     )
     z = ComplexFlatten()(x)
     logits = ComplexDense(num_classes(dataset), activation=softmax_real_with_real)(z)
@@ -224,6 +237,7 @@ CUSTOM_OBJECTS = {
     "ComplexSplit": ComplexSplit,
     "ComplexMultiHeadAttention": ComplexMultiHeadAttention,
     "softmax_real_with_real": softmax_real_with_real,
+    "AmplitudeLayerNormalization": AmplitudeLayerNormalization,
 }
 
 # Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError

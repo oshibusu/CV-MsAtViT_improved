@@ -13,6 +13,7 @@ import numpy as np
 from operator import truediv
 import random 
 from sklearn.utils import shuffle
+import matplotlib.pyplot as plt
 
 
 
@@ -252,6 +253,70 @@ def cart_gelu(x):
 
 def softmax_real_with_real(x):
     return tf.nn.softmax(tf.math.real(x))
+
+
+def save_classification_map(prediction_map, gt_map, dataset_name, save_path):
+    """
+    Save the classification map as a PNG image.
+    prediction_map: 2D numpy array of predicted labels
+    gt_map: 2D numpy array of ground truth (used for masking background if needed, but here we plot prediction)
+    dataset_name: Name of the dataset for the title
+    save_path: Path to save the image (e.g., results/plots/map.png)
+    """
+    plt.figure(figsize=(10, 8))
+    # Plot the prediction map. We presume prediction_map generally matches GT spatial dims.
+    # Use 'jet' or 'nipy_spectral' which are common for land cover
+    plt.imshow(prediction_map, cmap='jet')
+    plt.colorbar(label='Class ID')
+    plt.title(f'Classification Map: {dataset_name}')
+    plt.axis('off')
+    
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, bbox_inches='tight', dpi=300)
+    plt.close()
+
+
+class AmplitudeLayerNormalization(tf.keras.layers.Layer):
+    """
+    Layer Normalization that normalizes only the amplitude of complex inputs.
+    Phase information is preserved.
+    """
+    def __init__(self, epsilon=1e-6, **kwargs):
+        super(AmplitudeLayerNormalization, self).__init__(**kwargs)
+        self.epsilon = epsilon
+        self.layer_norm = tf.keras.layers.LayerNormalization(epsilon=epsilon)
+
+    def build(self, input_shape):
+        self.layer_norm.build(input_shape)
+        super(AmplitudeLayerNormalization, self).build(input_shape)
+
+    def call(self, inputs):
+        # inputs: Complex tensor (B, H, W, C) or (B, N, C)
+        
+        # 1. Compute amplitude and phase
+        amplitude = tf.abs(inputs)
+        phase = tf.math.angle(inputs)
+        
+        # 2. Normalize amplitude using standard LayerNormalization
+        # LayerNormalization operates on the last axis by default, which is correct for features.
+        normalized_amplitude = self.layer_norm(amplitude)
+        
+        # 3. Recombine with original phase
+        # z' = |z|' * e^(j * phase)
+        # Use complex exponentiation: e^(j*theta) = cos(theta) + j*sin(theta)
+        # But tf.complex(real, imag) is more direct if we convert polar to cartesian
+        
+        real = normalized_amplitude * tf.math.cos(phase)
+        imag = normalized_amplitude * tf.math.sin(phase)
+        
+        return tf.complex(real, imag)
+
+    def get_config(self):
+        config = super(AmplitudeLayerNormalization, self).get_config()
+        config.update({'epsilon': self.epsilon})
+        return config
+
+
 
 
 

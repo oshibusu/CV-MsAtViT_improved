@@ -8,7 +8,7 @@ import numpy as np
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
 from Load_Data import load_data
-from SAR_utils import *  # noqa: F401,F403 retains helper utilities
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -291,6 +291,12 @@ def save_batch_curve(csv_path, dataset_tag):
 def parse_args():
     parser = argparse.ArgumentParser(description="Train and export CV-MsAtViT")
     parser.add_argument("--dataset", default="SF", help="Dataset identifier (e.g., FL_T, SF, ober)")
+    parser.add_argument(
+        "--layer-norm-type",
+        default="amplitude",
+        choices=["amplitude", "split"],
+        help="Type of Layer Normalization: 'amplitude' (normalize magnitude only) or 'split' (independent real/imag)",
+    )
     parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
     parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
     parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
@@ -408,6 +414,7 @@ def main():
         dataset=dataset,
         window_size=window_size,
         lr=lr,
+        layer_norm_type=args.layer_norm_type,
     )
     model.summary()
     net_flops(model)
@@ -518,7 +525,13 @@ def main():
         new_map = Y_pred_map * gt_binary
 
         name = "CV_MsAtViT"
+        name = "CV_MsAtViT"
         sio.savemat(name + ".mat", {name: new_map})
+
+        # Save classification map image
+        map_save_path = os.path.join("results", "plots", f"{dataset_tag}_classification_map.png")
+        print(f"Saving classification map image to {map_save_path}...")
+        save_classification_map(new_map, gt, dataset, map_save_path)
 
     # Save weights for downstream visualization
     weights_path = os.path.join(ckpt_dir, f"CV_MsAtViT_{dataset_tag}_weights.h5")
