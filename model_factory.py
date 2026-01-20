@@ -137,7 +137,6 @@ def cmplx_ViT(
     num_heads,
     transformer_units,
     transformer_layers,
-    transformer_layers,
     mlp_head_units,
     layer_norm_type="amplitude",
 ):
