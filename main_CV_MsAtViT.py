@@ -297,6 +297,12 @@ def parse_args():
         choices=["amplitude", "split"],
         help="Type of Layer Normalization: 'amplitude' (normalize magnitude only) or 'split' (independent real/imag)",
     )
+    parser.add_argument(
+        "--activation-type",
+        default="modrelu",
+        choices=["modrelu", "cart_relu"],
+        help="Type of Activation for Conv layers: 'modrelu' (Modified ReLU) or 'cart_relu' (Cartesian ReLU)",
+    )
     parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
     parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
     parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
@@ -415,6 +421,7 @@ def main():
         window_size=window_size,
         lr=lr,
         layer_norm_type=args.layer_norm_type,
+        activation_type=args.activation_type,
     )
     model.summary()
     net_flops(model)

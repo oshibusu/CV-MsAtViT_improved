@@ -11,7 +11,7 @@ from cvnn.layers import (
     ComplexAvgPooling2D,
     ComplexBatchNormalization,
 )
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, AmplitudeLayerNormalization
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, AmplitudeLayerNormalization, ModReLU
 from CoordAttention import CoordAtt_cmplx
 from ComplexAttention import ComplexMultiHeadAttention
 
@@ -59,51 +59,71 @@ class PatchEncoder(layers.Layer):
         return encoded
 
 
-def MultiScaleFeatureExtractor(inputs):
+def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
+    if activation_type == "modrelu":
+        act = None
+    else:
+        act = "cart_relu"
+
     x1 = ComplexConv3D(
         filters=8,
         kernel_size=(3, 3, 1),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="spatial_conv3d_block1",
     )(inputs)
+    if activation_type == "modrelu":
+        x1 = ModReLU()(x1)
+
     x1 = ComplexConv3D(
         filters=8,
         kernel_size=(3, 3, 1),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="spatial_conv3d_block2",
     )(x1)
+    if activation_type == "modrelu":
+        x1 = ModReLU()(x1)
 
     x2 = ComplexConv3D(
         filters=8,
         kernel_size=(1, 1, 3),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="polar_conv3d_block1",
     )(inputs)
+    if activation_type == "modrelu":
+        x2 = ModReLU()(x2)
+
     x2 = ComplexConv3D(
         filters=8,
         kernel_size=(1, 1, 3),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="polar_conv3d_block2",
     )(x2)
+    if activation_type == "modrelu":
+        x2 = ModReLU()(x2)
 
     x3 = ComplexConv3D(
         filters=8,
         kernel_size=(3, 3, 3),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="joint_conv3d_block1",
     )(inputs)
+    if activation_type == "modrelu":
+        x3 = ModReLU()(x3)
+
     x3 = ComplexConv3D(
         filters=8,
         kernel_size=(3, 3, 3),
-        activation="cart_relu",
+        activation=act,
         padding="same",
         name="joint_conv3d_block2",
     )(x3)
+    if activation_type == "modrelu":
+        x3 = ModReLU()(x3)
 
     concatenated_features = tf.concat([x1, x2, x3], axis=4)
     return concatenated_features
@@ -185,6 +205,7 @@ def build_msatvit(
     mlp_head_units=None,
     transformer_units=None,
     layer_norm_type="amplitude",
+    activation_type="modrelu",
 ):
     if lr is None:
         lr = 0.0001 if dataset == "ober" else 0.001
@@ -193,10 +214,15 @@ def build_msatvit(
     num_patches = (window_size // patch_size) ** 2
 
     inputs = complex_input(shape=input_shape)
-    x = MultiScaleFeatureExtractor(inputs)
+    x = MultiScaleFeatureExtractor(inputs, activation_type=activation_type)
     x_shape = x.shape
     x = layers.Reshape((x_shape[1], x_shape[2], x_shape[3] * x_shape[4]))(x)
-    x = ComplexConv2D(filters=24, kernel_size=(3, 3), activation="cart_relu", padding="same")(x)
+    
+    act_conv = None if activation_type == "modrelu" else "cart_relu"
+    x = ComplexConv2D(filters=24, kernel_size=(3, 3), activation=act_conv, padding="same")(x)
+    if activation_type == "modrelu":
+        x = ModReLU()(x)
+
     x = CoordAtt_cmplx(x, 4)
     x = cmplx_ViT(
         x,
@@ -238,6 +264,7 @@ CUSTOM_OBJECTS = {
     "ComplexMultiHeadAttention": ComplexMultiHeadAttention,
     "softmax_real_with_real": softmax_real_with_real,
     "AmplitudeLayerNormalization": AmplitudeLayerNormalization,
+    "ModReLU": ModReLU,
 }
 
 # Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError
