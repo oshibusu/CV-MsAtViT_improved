@@ -16,9 +16,13 @@ from CoordAttention import CoordAtt_cmplx
 from ComplexAttention import ComplexMultiHeadAttention
 
 
-def cmplx_multilayer_perceptron(x, hidden_units, dropout_rate):
+def cmplx_multilayer_perceptron(x, hidden_units, dropout_rate, activation_type="modrelu"):
     for units in hidden_units:
-        x = ComplexDense(units, activation=cart_gelu)(x)
+        if activation_type == "modrelu":
+            x = ComplexDense(units, activation=None)(x)
+            x = ModReLU()(x)
+        else:
+            x = ComplexDense(units, activation=cart_gelu)(x)
         x = ComplexDropout(dropout_rate)(x)
     return x
 
@@ -139,6 +143,7 @@ def cmplx_ViT(
     transformer_layers,
     mlp_head_units,
     layer_norm_type="amplitude",
+    activation_type="modrelu",
 ):
     patches = Patches(patch_size)(x)
     encoded_patches = PatchEncoder(num_patches, projection_dim)(patches)
@@ -165,7 +170,7 @@ def cmplx_ViT(
             x3 = tf.complex(x3_r, x3_i)
 
         x3 = cmplx_multilayer_perceptron(
-            x3, hidden_units=transformer_units, dropout_rate=0.1
+            x3, hidden_units=transformer_units, dropout_rate=0.1, activation_type=activation_type
         )
 
         encoded_patches = layers.Add()([x3, x2])
@@ -186,7 +191,7 @@ def cmplx_ViT(
     representation = ComplexDropout(0.5)(representation)
 
     features = cmplx_multilayer_perceptron(
-        representation, hidden_units=mlp_head_units, dropout_rate=0.3
+        representation, hidden_units=mlp_head_units, dropout_rate=0.3, activation_type=activation_type
     )
 
     return features
@@ -233,6 +238,7 @@ def build_msatvit(
         transformer_layers,
         mlp_head_units,
         layer_norm_type=layer_norm_type,
+        activation_type=activation_type,
     )
     z = ComplexFlatten()(x)
     logits = ComplexDense(num_classes(dataset), activation=softmax_real_with_real)(z)
