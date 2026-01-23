@@ -278,36 +278,60 @@ def save_classification_map(prediction_map, gt_map, dataset_name, save_path):
 
 class AmplitudeLayerNormalization(tf.keras.layers.Layer):
     """
-    Layer Normalization that normalizes only the amplitude of complex inputs.
-    Phase information is preserved.
+    Custom Layer Normalization for amplitude.
+    It normalizes the variance to 1 BUT preserves the mean of the amplitude.
+    Then applies learnable scale (gamma) and shift (beta).
     """
     def __init__(self, epsilon=1e-6, **kwargs):
         super(AmplitudeLayerNormalization, self).__init__(**kwargs)
         self.epsilon = epsilon
-        self.layer_norm = tf.keras.layers.LayerNormalization(epsilon=epsilon)
+        # Gamma (scale) initialized to 1, Beta (shift) initialized to 0
+        self.gamma = None
+        self.beta = None
 
     def build(self, input_shape):
-        self.layer_norm.build(input_shape)
+        # input_shape is usually (Batch, ..., Channels)
+        # We broadcast along the last dimension (Channels)
+        params_shape = input_shape[-1:]
+        
+        self.gamma = self.add_weight(
+            name="gamma",
+            shape=params_shape,
+            initializer="ones",
+            trainable=True
+        )
+        self.beta = self.add_weight(
+            name="beta",
+            shape=params_shape,
+            initializer="zeros",
+            trainable=True
+        )
         super(AmplitudeLayerNormalization, self).build(input_shape)
 
     def call(self, inputs):
-        # inputs: Complex tensor (B, H, W, C) or (B, N, C)
+        # inputs: Complex tensor
         
         # 1. Compute amplitude and phase
         amplitude = tf.abs(inputs)
         phase = tf.math.angle(inputs)
         
-        # 2. Normalize amplitude using standard LayerNormalization
-        # LayerNormalization operates on the last axis by default, which is correct for features.
-        normalized_amplitude = self.layer_norm(amplitude)
+        # 2. Compute Mean and Variance along the last axis
+        mean, variance = tf.nn.moments(amplitude, axes=[-1], keepdims=True)
         
-        # 3. Recombine with original phase
-        # z' = |z|' * e^(j * phase)
-        # Use complex exponentiation: e^(j*theta) = cos(theta) + j*sin(theta)
-        # But tf.complex(real, imag) is more direct if we convert polar to cartesian
+        # 3. Normalize variance to 1, but PRESERVE the mean
+        # Standard LN: (x - mean) / std
+        # Here: (x - mean) / std + mean
+        # This results in a distribution with mean = original_mean, variance = 1
+        std = tf.sqrt(variance + self.epsilon)
+        normalized_amplitude = (amplitude - mean) / std + mean
         
-        real = normalized_amplitude * tf.math.cos(phase)
-        imag = normalized_amplitude * tf.math.sin(phase)
+        # 4. Apply learnable affine parameters
+        # Output = Normalized * gamma + beta
+        scaled_amplitude = normalized_amplitude * self.gamma + self.beta
+        
+        # 5. Recombine with original phase
+        real = scaled_amplitude * tf.math.cos(phase)
+        imag = scaled_amplitude * tf.math.sin(phase)
         
         return tf.complex(real, imag)
 
