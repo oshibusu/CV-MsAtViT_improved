@@ -225,6 +225,7 @@ def save_training_curve(history, dataset_tag):
         plt.plot(epochs, acc, label="accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Value")
+    plt.ylim(0, 1.1)  # Fix y-axis range
     plt.title(f"Training Curve ({dataset_tag})")
     plt.legend()
     plt.grid(True, linestyle="--", alpha=0.4)
