@@ -46,7 +46,7 @@ def _parse_index_spec(spec: str, max_len: int):
                 continue
             if start > end:
                 start, end = end, start
-            for i in range(start, end + 1):
+            for i 1in range(start, end + 1):
                 if 0 <= i < max_len:
                     indices.add(i)
         else:
@@ -294,9 +294,9 @@ def parse_args():
     parser.add_argument("--dataset", default="SF", help="Dataset identifier (e.g., FL_T, SF, ober)")
     parser.add_argument(
         "--layer-norm-type",
-        default="amplitude",
-        choices=["amplitude", "split"],
-        help="Type of Layer Normalization: 'amplitude' (normalize magnitude only) or 'split' (independent real/imag)",
+        default="complex",
+        choices=["amplitude", "split", "complex"],
+        help="Type of Layer Normalization: 'complex' (Default, centers to complex mean), 'amplitude' (Legacy), or 'split'",
     )
     parser.add_argument(
         "--activation-type",

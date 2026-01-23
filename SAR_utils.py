@@ -276,22 +276,21 @@ def save_classification_map(prediction_map, gt_map, dataset_name, save_path):
     plt.close()
 
 
-class AmplitudeLayerNormalization(tf.keras.layers.Layer):
+class ComplexLayerNormalization(tf.keras.layers.Layer):
     """
-    Custom Layer Normalization for amplitude.
-    It normalizes the variance to 1 BUT preserves the mean of the amplitude.
-    Then applies learnable scale (gamma) and shift (beta).
+    Complex Layer Normalization.
+    Normalizes by centering the complex data (subtracting complex mean)
+    and scaling by total variance (sum of real and imaginary variances).
     """
     def __init__(self, epsilon=1e-6, **kwargs):
-        super(AmplitudeLayerNormalization, self).__init__(**kwargs)
+        super(ComplexLayerNormalization, self).__init__(**kwargs)
         self.epsilon = epsilon
-        # Gamma (scale) initialized to 1, Beta (shift) initialized to 0
         self.gamma = None
-        self.beta = None
+        self.beta_real = None
+        self.beta_imag = None
 
     def build(self, input_shape):
         # input_shape is usually (Batch, ..., Channels)
-        # We broadcast along the last dimension (Channels)
         params_shape = input_shape[-1:]
         
         self.gamma = self.add_weight(
@@ -300,43 +299,52 @@ class AmplitudeLayerNormalization(tf.keras.layers.Layer):
             initializer="ones",
             trainable=True
         )
-        self.beta = self.add_weight(
-            name="beta",
+        # Shift (beta) is complex, so we learn real and imaginary parts separately
+        self.beta_real = self.add_weight(
+            name="beta_real",
             shape=params_shape,
             initializer="zeros",
             trainable=True
         )
-        super(AmplitudeLayerNormalization, self).build(input_shape)
+        self.beta_imag = self.add_weight(
+            name="beta_imag",
+            shape=params_shape,
+            initializer="zeros",
+            trainable=True
+        )
+        super(ComplexLayerNormalization, self).build(input_shape)
 
     def call(self, inputs):
         # inputs: Complex tensor
         
-        # 1. Compute amplitude and phase
-        amplitude = tf.abs(inputs)
-        phase = tf.math.angle(inputs)
+        # 1. Compute Complex Mean (along feature axis)
+        # mu = E[x] + j*E[y]
+        real_mean, real_var = tf.nn.moments(tf.math.real(inputs), axes=[-1], keepdims=True)
+        imag_mean, imag_var = tf.nn.moments(tf.math.imag(inputs), axes=[-1], keepdims=True)
         
-        # 2. Compute Mean and Variance along the last axis
-        mean, variance = tf.nn.moments(amplitude, axes=[-1], keepdims=True)
+        # 2. Compute Total Variance
+        # sigma^2 = Var(x) + Var(y)
+        total_variance = real_var + imag_var
         
-        # 3. Normalize variance to 1, but PRESERVE the mean
-        # Standard LN: (x - mean) / std
-        # Here: (x - mean) / std + mean
-        # This results in a distribution with mean = original_mean, variance = 1
-        std = tf.sqrt(variance + self.epsilon)
-        normalized_amplitude = (amplitude - mean) / std + mean
+        # 3. Normalize
+        # z_hat = (z - mu) / sqrt(sigma^2 + epsilon)
+        denom = tf.complex(tf.sqrt(total_variance + self.epsilon), 0.0)
         
-        # 4. Apply learnable affine parameters
-        # Output = Normalized * gamma + beta
-        scaled_amplitude = normalized_amplitude * self.gamma + self.beta
+        # Center the data
+        centered_inputs = inputs - tf.complex(real_mean, imag_mean)
+        normalized_inputs = centered_inputs / denom
         
-        # 5. Recombine with original phase
-        real = scaled_amplitude * tf.math.cos(phase)
-        imag = scaled_amplitude * tf.math.sin(phase)
+        # 4. Affine Transformation
+        # z_out = gamma * z_hat + beta
+        # gamma is real scalar, beta is complex (beta_real + j*beta_imag)
         
-        return tf.complex(real, imag)
+        scaled_inputs = normalized_inputs * tf.complex(self.gamma, 0.0)
+        output = scaled_inputs + tf.complex(self.beta_real, self.beta_imag)
+        
+        return output
 
     def get_config(self):
-        config = super(AmplitudeLayerNormalization, self).get_config()
+        config = super(ComplexLayerNormalization, self).get_config()
         config.update({'epsilon': self.epsilon})
         return config
 
