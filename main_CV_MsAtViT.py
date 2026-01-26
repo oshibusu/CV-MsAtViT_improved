@@ -46,7 +46,7 @@ def _parse_index_spec(spec: str, max_len: int):
                 continue
             if start > end:
                 start, end = end, start
-            for i 1in range(start, end + 1):
+            for i in range(start, end + 1):
                 if 0 <= i < max_len:
                     indices.add(i)
         else:
@@ -503,6 +503,11 @@ def main():
     print("oa = ", format((oa) * 100, ".2f"))
     print("aa = ", format((aa) * 100, ".2f"))
     print("Kappa = ", format((kappa) * 100, ".2f"))
+    
+    print("--- Class-wise Accuracy ---")
+    for i, acc in enumerate(each_acc):
+        print(f"Class {i}: {format(acc * 100, '.2f')}")
+    print("---------------------------")
 
     # Create the predicted class map
     # Create the predicted class map
