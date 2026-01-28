@@ -422,3 +422,53 @@ class ModReLU(tf.keras.layers.Layer):
 
 
 
+class ModSigmoid(tf.keras.layers.Layer):
+    """
+    Modified Sigmoid activation for complex-valued signals.
+    Applies Sigmoid to the amplitude with a learnable threshold b.
+    Formula: ModSigmoid(z) = Sigmoid(|z| + b) * (z / |z|)
+    This preserves phase and scales amplitude to (0, 1).
+    """
+    def __init__(self, epsilon=1e-6, **kwargs):
+        super(ModSigmoid, self).__init__(**kwargs)
+        self.epsilon = epsilon
+        self.b = None
+
+    def build(self, input_shape):
+        # Create a learnable bias param 'b'
+        # One b for each channel (feature map)
+        channel_axis = -1
+        self.b = self.add_weight(
+            shape=(input_shape[channel_axis],),
+            initializer=tf.constant_initializer(0.0), 
+            trainable=True,
+            name="b"
+        )
+        super(ModSigmoid, self).build(input_shape)
+
+    def call(self, inputs):
+        # inputs: Complex tensor z
+        
+        # 1. Compute amplitude |z|
+        amplitude = tf.abs(inputs)
+        
+        # 2. Compute adjusted amplitude: |z| + b
+        adjusted_amplitude = amplitude + self.b
+        
+        # 3. Apply Sigmoid: 1 / (1 + exp(-(|z| + b)))
+        activated_amplitude = tf.math.sigmoid(adjusted_amplitude)
+        
+        # 4. Rescale original input: z * (sigmoid(|z|+b) / |z|)
+        scale = activated_amplitude / (amplitude + self.epsilon)
+        
+        # Use simple complex multiplication (scale is real)
+        output = tf.complex(
+            tf.math.real(inputs) * scale,
+            tf.math.imag(inputs) * scale
+        )
+        return output
+
+    def get_config(self):
+        config = super(ModSigmoid, self).get_config()
+        config.update({'epsilon': self.epsilon})
+        return config

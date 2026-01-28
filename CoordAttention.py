@@ -5,6 +5,7 @@ from cvnn.layers import ComplexConv2D, ComplexAvgPooling2D, ComplexBatchNormaliz
 from cvnn.activations import cart_relu
 from keras import backend as K
 import tensorflow as tf
+from SAR_utils import ModSigmoid
 
 
 class ComplexSplit(tf.keras.layers.Layer):
@@ -46,8 +47,10 @@ def CoordAtt_cmplx(x, reduction = 8):
     x_h, x_w = ComplexSplit(num_or_size_splits=[h, w], axis=1)(y)
     
     x_w = K.permute_dimensions(x_w, [0, 2, 1, 3])
-    a_h = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation="cart_sigmoid")(x_h)
-    a_w = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation="cart_sigmoid")(x_w)
+    a_h = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation=None)(x_h)
+    a_h = ModSigmoid()(a_h)
+    a_w = ComplexConv2D(filters=c, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation=None)(x_w)
+    a_w = ModSigmoid()(a_w)
     out = x * (a_h * a_w)
     return out
 
