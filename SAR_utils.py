@@ -251,6 +251,25 @@ def cart_gelu(x):
     return output
 
 
+def cart_sigmoid(x):
+    """
+    Applies Sigmoid separately to real and imaginary parts.
+    """
+    x_r = tf.math.real(x)
+    x_i = tf.math.imag(x)
+
+    sig_r = tf.math.sigmoid(x_r)
+    sig_i = tf.math.sigmoid(x_i)
+
+    if x.dtype == 'complex' or x.dtype == 'complex64':
+           output = tf.complex(sig_r, sig_i)
+    else:
+           output = sig_r
+
+    return output
+
+
+
 def softmax_real_with_real(x):
     return tf.nn.softmax(tf.math.real(x))
 

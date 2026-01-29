@@ -218,6 +218,7 @@ def build_msatvit(
     transformer_units=None,
     layer_norm_type="complex",
     activation_type="modrelu",
+    coord_activation="modtanh",
 ):
     if lr is None:
         lr = 0.0001 if dataset == "ober" else 0.001
@@ -235,7 +236,7 @@ def build_msatvit(
     if activation_type == "modrelu":
         x = ModReLU()(x)
 
-    x = CoordAtt_cmplx(x, 4)
+    x = CoordAtt_cmplx(x, 4, activation=coord_activation)
     x = cmplx_ViT(
         x,
         patch_size,

@@ -8,7 +8,7 @@ import numpy as np
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
 from Load_Data import load_data
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -304,6 +304,12 @@ def parse_args():
         choices=["modrelu", "cart_relu"],
         help="Type of Activation for Conv layers: 'modrelu' (Modified ReLU) or 'cart_relu' (Cartesian ReLU)",
     )
+    parser.add_argument(
+        "--coord-activation",
+        default="modtanh",
+        choices=["modtanh", "cart_sigmoid", "modsigmoid"],
+        help="Type of Activation for Coordinate Attention: 'modtanh', 'cart_sigmoid', or 'modsigmoid'",
+    )
     parser.add_argument("--window-size", type=int, default=15, help="Patch window size")
     parser.add_argument("--test-ratio", type=float, default=0.99, help="Test split ratio")
     parser.add_argument("--batch-size", type=int, default=128, help="Training batch size")
@@ -369,17 +375,27 @@ def parse_args():
 def predict_by_batching(model, input_tensor, batch_size):
     """Run inference by chunking large tensors into smaller batches."""
     num_samples = input_tensor.shape[0]
+    Y_pred_test = None
+    
     k = 0
-    predictions = []
+    total_batches = (num_samples + batch_size - 1) // batch_size
+    
     for i in range(0, num_samples, batch_size):
-        print("batch", k, " out of", max(1, num_samples // batch_size))
-        print(k * batch_size, "out of", num_samples)
+        print("batch", k, " out of", total_batches)
+        print(i, "out of", num_samples)
         k += 1
+        
         batch = input_tensor[i : i + batch_size]
         batch_predictions = model.predict(batch, verbose=1)
-        predictions.append(batch_predictions)
+        
+        if Y_pred_test is None:
+            # Pre-allocate output array based on first batch result
+            # shape: (num_samples, num_classes)
+            output_dim = batch_predictions.shape[1]
+            Y_pred_test = np.zeros((num_samples, output_dim), dtype=batch_predictions.dtype)
+            
+        Y_pred_test[i : i + batch_predictions.shape[0]] = batch_predictions
 
-    Y_pred_test = np.concatenate(predictions, axis=0)
     return Y_pred_test
 
 
@@ -423,6 +439,7 @@ def main():
         lr=lr,
         layer_norm_type=args.layer_norm_type,
         activation_type=args.activation_type,
+        coord_activation=args.coord_activation,
     )
     model.summary()
     net_flops(model)
@@ -512,6 +529,9 @@ def main():
     # Create the predicted class map
     # Create the predicted class map
     del X_train, X_test
+    import gc
+    gc.collect()
+    keras.backend.clear_session()
     
     print("Generating full map prediction (memory efficient)...")
 
@@ -523,7 +543,8 @@ def main():
     # Total pixels to predict
     h, w = gt.shape
     total_pixels = h * w
-    batch_size = 600000 # Adjust this based on available VRAM/RAM
+    # Reduced batch size further to 10,000 to prevent 'Dst tensor is not initialized' / OOM errors
+    batch_size = 10000 
     patch_batch = np.zeros((batch_size, window_size, window_size, data.shape[2]), dtype='complex64')
     coords_batch = []
 
