@@ -511,40 +511,70 @@ def main():
 
     # Create the predicted class map
     # Create the predicted class map
-    # Note: If max_samples was used in SAR_utils (default 200k), X_coh_full will be smaller than full image.
-    # We must check if we can reshape.
     del X_train, X_test
-    X_coh_full, _ = createImageCubes(data, gt, window_size, removeZeroLabels=False, max_samples=None) 
-    # Calling with consistent max_samples to prevent OOM, though this means full map is impossible this way.
     
-    if X_coh_full.shape[0] != gt.size:
-        print(f"[WARN] Skipping full map generation: Subsampled data size ({X_coh_full.shape[0]}) does not match full image size ({gt.size}).")
-        print("To generate a full map, OOM-safe sliding window inference is required (not enabled).")
-    else:
-        X_coh_full = np.expand_dims(X_coh_full, axis=4)
+    print("Generating full map prediction (memory efficient)...")
 
-        Y_pred_full = predict_by_batching(
-            model, X_coh_full, max(1, X_coh_full.shape[0] // 16)
-        )
-        y_pred_full = (np.argmax(Y_pred_full, axis=1)).astype(np.uint8)
+    margin = int((window_size - 1) / 2)
+    zeroPaddedX = padWithZeros(data, margin=margin)
+    pred_map = np.zeros((gt.shape[0], gt.shape[1]), dtype=np.uint8)
 
-        Y_pred_map = np.reshape(y_pred_full, gt.shape) + 1
+    # Process in chunks to avoid OOM
+    # Total pixels to predict
+    h, w = gt.shape
+    total_pixels = h * w
+    batch_size = 600000 # Adjust this based on available VRAM/RAM
+    patch_batch = np.zeros((batch_size, window_size, window_size, data.shape[2]), dtype='complex64')
+    coords_batch = []
 
-        name = "CV_MsAtViT_Full"
-        sio.savemat(name + ".mat", {name: Y_pred_map})
+    count = 0
+    for r in range(h):
+        for c in range(w):
+            # Extract patch
+            patch = zeroPaddedX[r:r+window_size, c:c+window_size]
+            patch_batch[count] = patch
+            coords_batch.append((r, c))
+            count += 1
+            
+            if count == batch_size:
+                # Predict batch
+                patch_batch_input = np.expand_dims(patch_batch, axis=4)
+                preds = model.predict(patch_batch_input, verbose=0)
+                labels = np.argmax(preds, axis=1)
+                
+                # Fill map
+                for idx, (rr, cc) in enumerate(coords_batch):
+                    pred_map[rr, cc] = labels[idx] + 1 # Class labels usually 1-indexed in output mat
+                
+                # Reset
+                count = 0
+                coords_batch = []
+                if (r * w + c) % 100000 == 0:
+                    print(f"Processed {r * w + c}/{total_pixels} pixels...")
 
-        gt_binary = gt.copy()
-        gt_binary[gt_binary > 0] = 1
-        new_map = Y_pred_map * gt_binary
+    # Process remaining
+    if count > 0:
+        patch_batch_input = np.expand_dims(patch_batch[:count], axis=4)
+        preds = model.predict(patch_batch_input, verbose=0)
+        labels = np.argmax(preds, axis=1)
+        for idx, (rr, cc) in enumerate(coords_batch):
+            pred_map[rr, cc] = labels[idx] + 1
 
-        name = "CV_MsAtViT"
-        name = "CV_MsAtViT"
-        sio.savemat(name + ".mat", {name: new_map})
+    Y_pred = pred_map
+    name = f"CV_MsAtViT_Full_{dataset_tag}"
+    sio.savemat(f"{name}.mat", {name: Y_pred})
 
-        # Save classification map image
-        map_save_path = os.path.join("results", "plots", f"{dataset_tag}_classification_map.png")
-        print(f"Saving classification map image to {map_save_path}...")
-        save_classification_map(new_map, gt, dataset, map_save_path)
+    gt_binary = gt.copy()
+    gt_binary[gt_binary > 0] = 1
+    new_map = Y_pred * gt_binary
+
+    name = f"CV_MsAtViT_{dataset_tag}"
+    sio.savemat(f"{name}.mat", {name: new_map})
+
+    # Save classification map image
+    map_save_path = os.path.join("results", "plots", f"{dataset_tag}_classification_map.png")
+    print(f"Saving classification map image to {map_save_path}...")
+    save_classification_map(new_map, gt, dataset, map_save_path)
 
     # Save weights for downstream visualization
     weights_path = os.path.join(ckpt_dir, f"CV_MsAtViT_{dataset_tag}_weights.h5")
