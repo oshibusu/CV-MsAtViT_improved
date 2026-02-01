@@ -18,7 +18,26 @@ import matplotlib.pyplot as plt
 
 
 
-def splitTrainTestSet(X, y, testRatio, randomState=345, coords=None):
+def splitTrainTestSet(X, y, testRatio, randomState=42, coords=None):
+    if X is None and coords is not None:
+        # Special case: Split coords only based on y (labels)
+        # Using a placeholder for X to satisfy train_test_split signature, or just split indices of y
+        n_samples = len(y)
+        indices = np.arange(n_samples)
+        # We need to stratify by y. 
+        # train_test_split can take multiple arrays. We pass indices and coords.
+        # But wait, y matches the coords one-to-one if we called get_gt_coords?
+        # Let's assume input y here is a 1D array of labels corresponding to coords, NOT the 2D map.
+        # If y is the 2D map, this function signature is confusing. 
+        # In original usage: X is (N, W, W, C), y is (N,).
+        # In new usage: X is None, coords is (N, 2), y should be (N,) labels corresponding to coords.
+        
+        X_train, X_test, y_train, y_test, coords_train, coords_test = train_test_split(indices, y, coords, test_size=testRatio, random_state=randomState, stratify=y)
+        
+        # X_train/test here are just indices, which we don't really need if we have coords_train/test
+        # Return None for X_train/X_test to maintain signature
+        return None, None, y_train, y_test, coords_train, coords_test
+
     if coords is None:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testRatio, random_state=randomState,
                                                             stratify=y)
@@ -36,7 +55,7 @@ def padWithZeros(X, margin=2):
     newX[x_offset:X.shape[0] + x_offset, y_offset:X.shape[1] + y_offset, :] = X
     return newX
 
-def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=200000):
+def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=200000, random_state=42):
     # Use float32 to save memory if original is not critical, but complex64 is requested.
     # Count valid pixels first to avoid massive pre-allocation
     margin = int((windowSize - 1) / 2)
@@ -54,8 +73,10 @@ def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=20
     num_samples = len(r_idx)
     
     # Subsampling to avoid OOM
-    if max_samples is not None and num_samples > max_samples:
+    if max_samples is not None and max_samples > 0 and num_samples > max_samples:
         print(f"Subsampling data: reducing {num_samples} samples to {max_samples}...")
+        if random_state is not None:
+             np.random.seed(random_state)
         indices = np.random.choice(num_samples, max_samples, replace=False)
         r_idx = r_idx[indices]
         c_idx = c_idx[indices]
@@ -82,6 +103,37 @@ def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=20
     coords = np.column_stack((r_idx, c_idx))
         
     return patchesData, patchesLabels, coords
+
+def get_gt_coords(y, removeZeroLabels=True):
+    """
+    Get coordinates (r, c) of valid pixels without generating patches.
+    """
+    if removeZeroLabels:
+        r_idx, c_idx = np.nonzero(y > 0)
+    else:
+        r_idx, c_idx = np.indices((y.shape[0], y.shape[1]))
+        r_idx = r_idx.flatten()
+        c_idx = c_idx.flatten()
+        
+    coords = np.column_stack((r_idx, c_idx))
+    return coords
+
+def extract_patches_from_coords(data, coords, windowSize=5):
+    """
+    Generate patches for specific coordinates.
+    """
+    num_samples = len(coords)
+    margin = int((windowSize - 1) / 2)
+    zeroPaddedX = padWithZeros(data, margin=margin)
+    
+    patchesData = np.zeros((num_samples, windowSize, windowSize, data.shape[2]), dtype='complex64')
+    
+    for i in range(num_samples):
+        r, c = coords[i]
+        patch = zeroPaddedX[r : r + windowSize, c : c + windowSize]
+        patchesData[i, :, :, :] = patch
+        
+    return patchesData
 
 def AA_andEachClassAccuracy(confusion_matrix):
     list_diag = np.diag(confusion_matrix)
@@ -146,7 +198,7 @@ def getTrainTestSplit(X_cmplx, X_rgb, y, pxls_num):
                 print("Number of training pixles is larger than total class pixels")
                 return
             else:
-                random.seed(321) #optional to reproduce the data
+                random.seed(42) #optional to reproduce the data
                 samples = random.sample(range(len(y[y==i])), pxls_num[i])
                 xTrain_cmplx.extend(X_cmplx[y==i][samples])
                 xTrain_rgb.extend(X_rgb[y==i][samples])
@@ -165,8 +217,8 @@ def getTrainTestSplit(X_cmplx, X_rgb, y, pxls_num):
                 yTest.extend(tmp3)
      
   
-    xTrain_cmplx, xTrain_rgb, yTrain = shuffle(xTrain_cmplx, xTrain_rgb, yTrain, random_state=321)  
-    xTest_cmplx, xTest_rgb, yTest = shuffle(xTest_cmplx, xTest_rgb, yTest, random_state=345)
+    xTrain_cmplx, xTrain_rgb, yTrain = shuffle(xTrain_cmplx, xTrain_rgb, yTrain, random_state=42)  
+    xTest_cmplx, xTest_rgb, yTest = shuffle(xTest_cmplx, xTest_rgb, yTest, random_state=42)
     
     #xTrain_rgb, yTrain = shuffle(xTrain_rgb, yTrain, random_state=321)  
     #xTest_rgb, yTest = shuffle(xTest_rgb, yTest, random_state=345)

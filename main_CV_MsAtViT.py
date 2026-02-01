@@ -424,11 +424,35 @@ def main():
     # Handle max_samples logic
     max_samples = args.max_samples if args.max_samples > 0 else None
     
-    X_coh, y, coords = createImageCubes(data, gt, window_size, max_samples=max_samples)
-    X_coh = np.expand_dims(X_coh, axis=4)
-    
-    X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords)
-    del X_coh  # save RAM
+    if args.max_samples == -1 and args.only_gt:
+        # --- Chunked Processing Strategy ---
+        # 1. Get all valid coordinates
+        print("Getting valid coordinates (no patching yet)...")
+        coords = get_gt_coords(gt, removeZeroLabels=True)
+        y_all_valid = gt[coords[:, 0], coords[:, 1]]
+        
+        # 2. Split coordinates
+        print(f"Splitting {len(coords)} samples...")
+        # We pass None for X, so we get None back for X_train/X_test
+        _, _, y_train, y_test, coords_train, coords_test = splitTrainTestSet(None, y_all_valid, test_ratio, coords=coords, randomState=42)
+        
+        # 3. Load Train patches
+        print(f"Loading Train patches ({len(coords_train)} samples)...")
+        X_train = extract_patches_from_coords(data, coords_train, windowSize=window_size)
+        X_train = np.expand_dims(X_train, axis=4)
+        y_train = y_train - 1 # 0-indexed for training
+        y_test = y_test - 1   # 0-indexed for evaluation
+        
+        # 4. X_test is NOT loaded yet, will be processed in chunks
+        X_test = None 
+        
+    else:
+        # --- Original Logic ---
+        X_coh, y, coords = createImageCubes(data, gt, window_size, max_samples=max_samples, random_state=42)
+        X_coh = np.expand_dims(X_coh, axis=4)
+        
+        X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords, randomState=42)
+        del X_coh  # save RAM
 
     for i in range(int(np.max(y_test) + 1)):
         count = np.sum(y_test == i)
@@ -514,17 +538,52 @@ def main():
     if record_callback and args.record_first_epoch:
         save_batch_curve(record_callback.csv_path, dataset_tag)
 
+    if X_test is not None:
     Y_pred_test = predict_by_batching(model, X_test, max(1, X_test.shape[0] // 16))
     y_pred_test = np.argmax(Y_pred_test, axis=1)
-
     kappa = cohen_kappa_score(np.argmax(y_test, axis=1), y_pred_test)
     oa = accuracy_score(np.argmax(y_test, axis=1), y_pred_test)
     confusion = confusion_matrix(np.argmax(y_test, axis=1), y_pred_test)
     each_acc, aa = AA_andEachClassAccuracy(confusion)
-
     print("oa = ", format((oa) * 100, ".2f"))
     print("aa = ", format((aa) * 100, ".2f"))
     print("Kappa = ", format((kappa) * 100, ".2f"))
+    
+    print("--- Class-wise Accuracy ---")
+    for i, acc in enumerate(each_acc):
+        print(f"Class {i}: {format(acc * 100, '.2f')}")
+    print("---------------------------")
+elif args.max_samples == -1 and args.only_gt:
+    # Calculate metrics for Chunked Test Set
+    print("Calculating metrics for Chunked Test Set...")
+    # Validation/Test prediction loop
+    chunk_size = 500000 
+    y_pred_test_all = []
+    
+    num_test = len(coords_test)
+    for i in range(0, num_test, chunk_size):
+        chunk_coords = coords_test[i : i + chunk_size]
+        chunk_patches = extract_patches_from_coords(data, chunk_coords, window_size)
+        chunk_patches = np.expand_dims(chunk_patches, axis=4)
+        
+        preds = predict_by_batching(model, chunk_patches, 128)
+        y_pred_chunk = np.argmax(preds, axis=1)
+        y_pred_test_all.append(y_pred_chunk)
+        
+        del chunk_patches
+        gc.collect()
+
+    y_pred_test = np.concatenate(y_pred_test_all)
+    
+    kappa = cohen_kappa_score(y_test, y_pred_test)
+    oa = accuracy_score(y_test, y_pred_test)
+    confusion = confusion_matrix(y_test, y_pred_test)
+    each_acc, aa = AA_andEachClassAccuracy(confusion)
+    report = classification_report(y_test, y_pred_test, digits=4)
+    print("OA = ", oa)
+    print("AA = ", aa)
+    print("Kappa = ", kappa)
+    print('Classification Report: \n', report)
     
     print("--- Class-wise Accuracy ---")
     for i, acc in enumerate(each_acc):
@@ -543,18 +602,56 @@ def main():
 
     if args.only_gt:
         print("Using selective GT mapping (skipping full inference)...")
-        # Predict on Train set
+    
+    # Predict on Train set (if it still exists in memory, or we need to be careful if we deleted it)
+    # We haven't deleted X_train yet in the new flow, so we can use it.
+    if X_train is not None:
         print(f"Predicting on Train set ({X_train.shape[0]} samples)...")
-        Y_pred_train = predict_by_batching(model, X_train, args.batch_size)
-        y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 # 1-based class
+        Y_pred_train = predict_by_batching(model, X_train, 128)
+        y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 
         
-        # Test set is already predicted as y_pred_test (indices)
-        y_pred_test_labels = y_pred_test + 1
-        
-        # Fill map using coords
-        # coords are (r, c)
-        pred_map[coords_train[:, 0], coords_train[:, 1]] = y_pred_train
-        pred_map[coords_test[:, 0], coords_test[:, 1]] = y_pred_test_labels
+        # Test set prediction (Chunked or Standard)
+        if args.max_samples == -1:
+            print("Predicting on Test set in chunks (500k)...")
+            chunk_size = 500000
+            y_pred_test_all = []
+            
+            num_test = len(coords_test)
+            for i in range(0, num_test, chunk_size):
+                print(f"  Processing chunk {i}-{min(i+chunk_size, num_test)} / {num_test}...")
+                chunk_coords = coords_test[i : i + chunk_size]
+                
+                # Extract patches for chunk
+                chunk_patches = extract_patches_from_coords(data, chunk_coords, window_size)
+                chunk_patches = np.expand_dims(chunk_patches, axis=4)
+                
+                # Predict
+                preds = predict_by_batching(model, chunk_patches, 128)
+                y_pred_chunk = np.argmax(preds, axis=1)
+                
+                y_pred_test_all.append(y_pred_chunk)
+                
+                # Free memory
+                del chunk_patches
+                del preds
+                import gc
+                gc.collect()
+                
+            y_pred_test = np.concatenate(y_pred_test_all)
+            
+        else:
+            # Standard flow where X_test is already in memory
+             # Test set is already predicted as y_pred_test (indices) from model.evaluate/predict block? 
+             # Wait, previous block only did model.evaluate. We need labels.
+             Y_pred_test = predict_by_batching(model, X_test, 128)
+             y_pred_test = np.argmax(Y_pred_test, axis=1)
+             
+    # Prepare labels (1-based for map)
+    y_pred_test_labels = y_pred_test + 1
+    
+    # Fill map using coords
+    pred_map[coords_train[:, 0], coords_train[:, 1]] = y_pred_train
+    pred_map[coords_test[:, 0], coords_test[:, 1]] = y_pred_test_labels
         
     else:
         print("Generating full map prediction (memory efficient)...")

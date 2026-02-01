@@ -59,6 +59,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='FL_T', help='Dataset to train on (e.g. FL_T, SF, ober, Baltrum_S_FP1)')
 parser.add_argument('--max-samples', type=int, default=200000, help='Max samples to use for training to avoid OOM (default: 200000). Set to -1 for all.')
 parser.add_argument('--epochs', type=int, default=300, help='Number of epochs to train')
+parser.add_argument('--only-gt', action='store_true', help='If True, restrict processing to GT pixels only and skip full map inference.')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -77,12 +78,35 @@ data = Standardize_data(data)
 
 
 
-X_coh, y = createImageCubes(data, gt, windowSize, max_samples=max_samples)
-X_coh = np.expand_dims(X_coh, axis=4)
-
-
-X_train, X_test, y_train, y_test = splitTrainTestSet(X_coh, y, test_ratio)
-del X_coh # To save RAM memory
+    if args.max_samples == -1 and args.only_gt:
+        # --- Chunked Processing Strategy ---
+        # 1. Get all valid coordinates
+        print("Getting valid coordinates (no patching yet)...")
+        coords = get_gt_coords(gt, removeZeroLabels=True)
+        y_all_valid = gt[coords[:, 0], coords[:, 1]]
+        
+        # 2. Split coordinates
+        print(f"Splitting {len(coords)} samples...")
+        # We pass None for X, so we get None back for X_train/X_test
+        _, _, y_train, y_test, coords_train, coords_test = splitTrainTestSet(None, y_all_valid, test_ratio, coords=coords, randomState=42)
+        
+        # 3. Load Train patches
+        print(f"Loading Train patches ({len(coords_train)} samples)...")
+        X_train = extract_patches_from_coords(data, coords_train, windowSize=windowSize)
+        X_train = np.expand_dims(X_train, axis=4)
+        y_train = y_train - 1 # 0-indexed for training
+        y_test = y_test - 1   # 0-indexed for evaluation
+        
+        # 4. X_test is NOT loaded yet, will be processed in chunks
+        X_test = None 
+        
+    else:
+        # --- Original Logic ---
+        X_coh, y, coords = createImageCubes(data, gt, windowSize, max_samples=max_samples, random_state=42)
+        X_coh = np.expand_dims(X_coh, axis=4)
+        
+        X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords, randomState=42)
+        del X_coh  # save RAM
 
 
 total = 0
@@ -290,24 +314,50 @@ save_training_curve(history, dataset)
     
 
 
-Y_pred_test = predict_by_batching(model, X_test, X_test.shape[0]//16)
-y_pred_test = np.argmax(Y_pred_test, axis=1)
-       
+if X_test is not None:
+    Y_pred_test = model.predict(X_test)
+    y_pred_test = np.argmax(Y_pred_test, axis=1)
+    kappa = cohen_kappa_score(np.argmax(y_test, axis=1), y_pred_test)
+    oa = accuracy_score(np.argmax(y_test, axis=1), y_pred_test)
+    confusion = confusion_matrix(np.argmax(y_test, axis=1), y_pred_test)
+    each_acc, aa = AA_andEachClassAccuracy(confusion)
+    report = classification_report(np.argmax(y_test, axis=1), y_pred_test, digits=4)
+    print("OA = ", oa)
+    print("AA = ", aa)
+    print("Kappa = ", kappa)
+    print('Classification Report: \n', report)
+elif args.max_samples == -1 and args.only_gt:
+    # Calculate metrics for Chunked Test Set
+    print("Calculating metrics for Chunked Test Set...")
+    # Validation/Test prediction loop
+    chunk_size = 500000 
+    y_pred_test_all = []
     
-    
-    
-kappa = cohen_kappa_score(np.argmax(y_test, axis=1),  y_pred_test)
-oa = accuracy_score(np.argmax(y_test, axis=1), y_pred_test)
-confusion = confusion_matrix(np.argmax(y_test, axis=1), y_pred_test)
-each_acc, aa = AA_andEachClassAccuracy(confusion)
-    
+    num_test = len(coords_test)
+    for i in range(0, num_test, chunk_size):
+        chunk_coords = coords_test[i : i + chunk_size]
+        chunk_patches = extract_patches_from_coords(data, chunk_coords, windowSize=windowSize)
+        chunk_patches = np.expand_dims(chunk_patches, axis=4)
+        
+        preds = predict_by_batching(model, chunk_patches, 128)
+        y_pred_chunk = np.argmax(preds, axis=1)
+        y_pred_test_all.append(y_pred_chunk)
+        
+        del chunk_patches
+        import gc
+        gc.collect()
 
+    y_pred_test = np.concatenate(y_pred_test_all)
     
- 
-
-print("oa = ", format((oa)*100, ".2f")) 
-print("aa = ", format((aa)*100, ".2f"))
-print('Kappa = ', format((kappa)*100, ".2f"))
+    kappa = cohen_kappa_score(np.argmax(y_test, axis=1), y_pred_test)
+    oa = accuracy_score(np.argmax(y_test, axis=1), y_pred_test)
+    confusion = confusion_matrix(np.argmax(y_test, axis=1), y_pred_test)
+    each_acc, aa = AA_andEachClassAccuracy(confusion)
+    report = classification_report(np.argmax(y_test, axis=1), y_pred_test, digits=4)
+    print("OA = ", oa)
+    print("AA = ", aa)
+    print("Kappa = ", kappa)
+    print('Classification Report: \n', report)
 
 print("--- Class-wise Accuracy ---")
 for i, acc in enumerate(each_acc):
@@ -317,58 +367,119 @@ for i, acc in enumerate(each_acc):
 
 ###############################################################################
 # Create the predicted class map
-del X_train, X_test
-import gc
-gc.collect()
-keras.backend.clear_session()
+# Create the predicted class map
+# del X_train, X_test
+# import gc
+# gc.collect()
+# keras.backend.clear_session()
 
-print("Generating full map prediction (memory efficient)...")
-
-margin = int((windowSize - 1) / 2)
-zeroPaddedX = padWithZeros(data, margin=margin)
 pred_map = np.zeros((gt.shape[0], gt.shape[1]), dtype=np.uint8)
 
-# Process in chunks to avoid OOM
-# Total pixels to predict
-h, w = gt.shape
-total_pixels = h * w
-# Reduced batch size further to 10,000 to prevent 'Dst tensor is not initialized' / OOM errors
-batch_size = 10000 
-patch_batch = np.zeros((batch_size, windowSize, windowSize, data.shape[2]), dtype='complex64')
-coords_batch = []
-
-count = 0
-for r in range(h):
-    for c in range(w):
-        # Extract patch
-        patch = zeroPaddedX[r:r+windowSize, c:c+windowSize]
-        patch_batch[count] = patch
-        coords_batch.append((r, c))
-        count += 1
+if args.only_gt:
+    print("Using selective GT mapping (skipping full inference)...")
+    
+    # Predict on Train set (if it still exists in memory, or we need to be careful if we deleted it)
+    # We haven't deleted X_train yet in the new flow, so we can use it.
+    if X_train is not None:
+        print(f"Predicting on Train set ({X_train.shape[0]} samples)...")
+        Y_pred_train = predict_by_batching(model, X_train, 128)
+        y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 
         
-        if count == batch_size:
-            # Predict batch
-            patch_batch_input = np.expand_dims(patch_batch, axis=4)
-            preds = model.predict(patch_batch_input, verbose=0)
-            labels = np.argmax(preds, axis=1)
+        # Test set prediction (Chunked or Standard)
+        if args.max_samples == -1:
+            print("Predicting on Test set in chunks (500k)...")
+            chunk_size = 500000
+            y_pred_test_all = []
             
-            # Fill map
-            for idx, (rr, cc) in enumerate(coords_batch):
-                pred_map[rr, cc] = labels[idx] + 1 # Class labels usually 1-indexed in output mat
+            num_test = len(coords_test)
+            for i in range(0, num_test, chunk_size):
+                print(f"  Processing chunk {i}-{min(i+chunk_size, num_test)} / {num_test}...")
+                chunk_coords = coords_test[i : i + chunk_size]
+                
+                # Extract patches for chunk
+                chunk_patches = extract_patches_from_coords(data, chunk_coords, windowSize=windowSize)
+                chunk_patches = np.expand_dims(chunk_patches, axis=4)
+                
+                # Predict
+                preds = predict_by_batching(model, chunk_patches, 128)
+                y_pred_chunk = np.argmax(preds, axis=1)
+                
+                y_pred_test_all.append(y_pred_chunk)
+                
+                # Free memory
+                del chunk_patches
+                del preds
+                import gc
+                gc.collect()
+                
+            y_pred_test = np.concatenate(y_pred_test_all)
             
-            # Reset
-            count = 0
-            coords_batch = []
-            if (r * w + c) % 100000 == 0:
-                print(f"Processed {r * w + c}/{total_pixels} pixels...")
+        else:
+            # Standard flow where X_test is already in memory
+             # Test set is already predicted as y_pred_test (indices) from model.evaluate/predict block? 
+             # Wait, previous block only did model.evaluate. We need labels.
+             Y_pred_test = predict_by_batching(model, X_test, 128)
+             y_pred_test = np.argmax(Y_pred_test, axis=1)
+             
+    # Prepare labels (1-based for map)
+    y_pred_test_labels = y_pred_test + 1
+    
+    # Fill map using coords
+    pred_map[coords_train[:, 0], coords_train[:, 1]] = y_pred_train
+    pred_map[coords_test[:, 0], coords_test[:, 1]] = y_pred_test_labels
 
-# Process remaining
-if count > 0:
-    patch_batch_input = np.expand_dims(patch_batch[:count], axis=4)
-    preds = model.predict(patch_batch_input, verbose=0)
-    labels = np.argmax(preds, axis=1)
-    for idx, (rr, cc) in enumerate(coords_batch):
-        pred_map[rr, cc] = labels[idx] + 1
+else:
+    print("Generating full map prediction (memory efficient)...")
+    
+    del X_train, X_test
+    import gc
+    gc.collect()
+    keras.backend.clear_session()
+
+    margin = int((windowSize - 1) / 2)
+    zeroPaddedX = padWithZeros(data, margin=margin)
+
+    # Process in chunks to avoid OOM
+    # Total pixels to predict
+    h, w = gt.shape
+    total_pixels = h * w
+    # Reduced batch size further to 10,000 to prevent 'Dst tensor is not initialized' / OOM errors
+    batch_size = 10000 
+    patch_batch = np.zeros((batch_size, windowSize, windowSize, data.shape[2]), dtype='complex64')
+    coords_batch = []
+
+    count = 0
+    for r in range(h):
+        for c in range(w):
+            # Extract patch
+            patch = zeroPaddedX[r:r+windowSize, c:c+windowSize]
+            patch_batch[count] = patch
+            coords_batch.append((r, c))
+            count += 1
+            
+            if count == batch_size:
+                # Predict batch
+                patch_batch_input = np.expand_dims(patch_batch, axis=4)
+                preds = model.predict(patch_batch_input, verbose=0)
+                labels = np.argmax(preds, axis=1)
+                
+                # Fill map
+                for idx, (rr, cc) in enumerate(coords_batch):
+                    pred_map[rr, cc] = labels[idx] + 1 # Class labels usually 1-indexed in output mat
+                
+                # Reset
+                count = 0
+                coords_batch = []
+                if (r * w + c) % 100000 == 0:
+                    print(f"Processed {r * w + c}/{total_pixels} pixels...")
+
+    # Process remaining
+    if count > 0:
+        patch_batch_input = np.expand_dims(patch_batch[:count], axis=4)
+        preds = model.predict(patch_batch_input, verbose=0)
+        labels = np.argmax(preds, axis=1)
+        for idx, (rr, cc) in enumerate(coords_batch):
+            pred_map[rr, cc] = labels[idx] + 1
 
 name = 'CV_MsAtViT_Full'
 sio.savemat(name+'.mat', {name: pred_map})
