@@ -558,7 +558,7 @@ def main():
         # Calculate metrics for Chunked Test Set
         print("Calculating metrics for Chunked Test Set...")
         # Validation/Test prediction loop
-        chunk_size = 500000 
+        chunk_size = 50000 
         y_pred_test_all = []
         
         num_test = len(coords_test)
@@ -614,7 +614,7 @@ def main():
             # Test set prediction (Chunked or Standard)
             if args.max_samples == -1:
                 print("Predicting on Test set in chunks (500k)...")
-                chunk_size = 500000
+                chunk_size = 50000
                 y_pred_test_all = []
                 
                 num_test = len(coords_test)
