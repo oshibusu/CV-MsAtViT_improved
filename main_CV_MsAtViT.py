@@ -716,14 +716,16 @@ def main():
 
     Y_pred = pred_map
     name = f"CV_MsAtViT_Full_{dataset_tag}"
-    sio.savemat(f"{name}.mat", {name: Y_pred})
+    mat_save_path = os.path.join("results", f"{name}.mat")
+    sio.savemat(mat_save_path, {name: Y_pred})
 
     gt_binary = gt.copy()
     gt_binary[gt_binary > 0] = 1
     new_map = Y_pred * gt_binary
 
     name = f"CV_MsAtViT_{dataset_tag}"
-    sio.savemat(f"{name}.mat", {name: new_map})
+    mat_save_path_2 = os.path.join("results", f"{name}.mat")
+    sio.savemat(mat_save_path_2, {name: new_map})
 
     # Save classification map image
     map_save_path = os.path.join("results", "plots", f"{dataset_tag}_classification_map.png")

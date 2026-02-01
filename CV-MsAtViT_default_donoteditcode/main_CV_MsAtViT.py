@@ -481,13 +481,15 @@ else:
             pred_map[rr, cc] = labels[idx] + 1
 
 name = 'CV_MsAtViT_Full'
-sio.savemat(name+'.mat', {name: pred_map})
+mat_save_path = os.path.join("results", name+'.mat')
+sio.savemat(mat_save_path, {name: pred_map})
 
 gt_binary = gt.copy()
 gt_binary[gt_binary>0]=1
 new_map = pred_map * gt_binary
 
 name = 'CV_MsAtViT'
-sio.savemat(name+'.mat', {name: new_map})
+mat_save_path_2 = os.path.join("results", name+'.mat')
+sio.savemat(mat_save_path_2, {name: new_map})
 
 
