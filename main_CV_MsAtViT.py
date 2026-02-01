@@ -7,7 +7,7 @@ import gc
 import scipy.io as sio
 import numpy as np
 from tensorflow import keras
-from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
+from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, classification_report
 from Load_Data import load_data
 from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords
 from net_flops import net_flops

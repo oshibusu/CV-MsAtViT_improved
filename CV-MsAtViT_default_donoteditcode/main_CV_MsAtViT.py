@@ -4,7 +4,7 @@ import os
 import gc
 import numpy as np
 from SAR_utils import *
-from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
+from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, classification_report
 from Load_Data import load_data
 from cvnn.layers import complex_input, ComplexConv2D, ComplexConv3D, ComplexDense, ComplexDropout, ComplexFlatten
 from tensorflow.keras import layers
