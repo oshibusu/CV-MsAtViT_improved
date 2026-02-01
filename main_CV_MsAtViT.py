@@ -582,11 +582,8 @@ def main():
 
         y_pred_test = np.concatenate(y_pred_test_all)
         
-        print(f"DEBUG: y_test shape: {y_test.shape}, dtype: {y_test.dtype}")
-        print(f"DEBUG: y_test examples: {y_test[:5]}")
-        print(f"DEBUG: y_pred_test shape: {y_pred_test.shape}, dtype: {y_pred_test.dtype}")
-        print(f"DEBUG: y_pred_test examples: {y_pred_test[:5]}")
-        print(f"DEBUG: y_test unique types: {type(y_test)}")
+        # Convert one-hot encoded y_test back to class indices for metrics
+        y_test = np.argmax(y_test, axis=1)
         
         kappa = cohen_kappa_score(y_test, y_pred_test)
         oa = accuracy_score(y_test, y_pred_test)
