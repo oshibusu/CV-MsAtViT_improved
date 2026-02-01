@@ -558,14 +558,8 @@ def main():
         # Calculate metrics for Chunked Test Set
         print("Calculating metrics for Chunked Test Set...")
         # Validation/Test prediction loop
-        chunk_size = 300
+        chunk_size = 500000
         y_pred_test_all = []
-        
-        # DEBUG: Limit test set for quick debugging as requested
-        print("DEBUG MODE: Limiting test set to 1000 samples for fast failure analysis...")
-        debug_limit = 1000
-        coords_test = coords_test[:debug_limit]
-        y_test = y_test[:debug_limit]
         
         num_test = len(coords_test)
         for i in range(0, num_test, chunk_size):
@@ -623,7 +617,7 @@ def main():
             # Test set prediction (Chunked or Standard)
             if args.max_samples == -1:
                 print("Predicting on Test set in chunks (500k)...")
-                chunk_size = 300
+                chunk_size = 500000
                 y_pred_test_all = []
                 
                 num_test = len(coords_test)
