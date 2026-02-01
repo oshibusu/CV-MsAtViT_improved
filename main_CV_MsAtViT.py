@@ -3,12 +3,13 @@ import csv
 import json
 import math
 import os
+import gc
 import scipy.io as sio
 import numpy as np
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
 from Load_Data import load_data
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -634,7 +635,6 @@ def main():
                     # Free memory
                     del chunk_patches
                     del preds
-                    import gc
                     gc.collect()
                     
                 y_pred_test = np.concatenate(y_pred_test_all)
@@ -658,7 +658,6 @@ def main():
         
         # Release memory before full inference
         del X_train, X_test
-        import gc
         gc.collect()
         # Note: clearing session might invalidate model if we needed it again, 
         # but here we use 'model' object. Standard Keras model object survives clear_session? 

@@ -1,6 +1,7 @@
 import scipy.io as sio
 import argparse
 import os
+import gc
 import numpy as np
 from SAR_utils import *
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
@@ -409,7 +410,6 @@ if args.only_gt:
                 # Free memory
                 del chunk_patches
                 del preds
-                import gc
                 gc.collect()
                 
             y_pred_test = np.concatenate(y_pred_test_all)
@@ -432,7 +432,6 @@ else:
     print("Generating full map prediction (memory efficient)...")
     
     del X_train, X_test
-    import gc
     gc.collect()
     keras.backend.clear_session()
 
