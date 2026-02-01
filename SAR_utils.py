@@ -18,10 +18,15 @@ import matplotlib.pyplot as plt
 
 
 
-def splitTrainTestSet(X, y, testRatio, randomState=345):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testRatio, random_state=randomState,
-                                                        stratify=y)
-    return X_train, X_test, y_train, y_test
+def splitTrainTestSet(X, y, testRatio, randomState=345, coords=None):
+    if coords is None:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testRatio, random_state=randomState,
+                                                            stratify=y)
+        return X_train, X_test, y_train, y_test
+    else:
+        X_train, X_test, y_train, y_test, coords_train, coords_test = train_test_split(X, y, coords, test_size=testRatio, random_state=randomState,
+                                                            stratify=y)
+        return X_train, X_test, y_train, y_test, coords_train, coords_test
 
 
 def padWithZeros(X, margin=2):
@@ -73,7 +78,10 @@ def createImageCubes(X, y, windowSize=5, removeZeroLabels = True, max_samples=20
     if removeZeroLabels:
         patchesLabels -= 1
         
-    return patchesData, patchesLabels
+    # Stack coordinates (r, c)
+    coords = np.column_stack((r_idx, c_idx))
+        
+    return patchesData, patchesLabels, coords
 
 def AA_andEachClassAccuracy(confusion_matrix):
     list_diag = np.diag(confusion_matrix)

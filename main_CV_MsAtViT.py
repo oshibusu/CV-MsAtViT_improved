@@ -369,6 +369,11 @@ def parse_args():
         default=200000,
         help="Max samples to use for training to avoid OOM (default: 200000). Set to -1 for all.",
     )
+    parser.add_argument(
+        "--only-gt",
+        action="store_true",
+        help="If True, restrict processing to GT pixels only and skip full map inference.",
+    )
     return parser.parse_args()
 
 
@@ -419,10 +424,10 @@ def main():
     # Handle max_samples logic
     max_samples = args.max_samples if args.max_samples > 0 else None
     
-    X_coh, y = createImageCubes(data, gt, window_size, max_samples=max_samples)
+    X_coh, y, coords = createImageCubes(data, gt, window_size, max_samples=max_samples)
     X_coh = np.expand_dims(X_coh, axis=4)
     
-    X_train, X_test, y_train, y_test = splitTrainTestSet(X_coh, y, test_ratio)
+    X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords)
     del X_coh  # save RAM
 
     for i in range(int(np.max(y_test) + 1)):
@@ -528,58 +533,87 @@ def main():
 
     # Create the predicted class map
     # Create the predicted class map
-    del X_train, X_test
-    import gc
-    gc.collect()
-    keras.backend.clear_session()
+    # Commented out per user request to skip full map inference
+    # del X_train, X_test
+    # import gc
+    # gc.collect()
+    # keras.backend.clear_session()
     
-    print("Generating full map prediction (memory efficient)...")
-
-    margin = int((window_size - 1) / 2)
-    zeroPaddedX = padWithZeros(data, margin=margin)
     pred_map = np.zeros((gt.shape[0], gt.shape[1]), dtype=np.uint8)
 
-    # Process in chunks to avoid OOM
-    # Total pixels to predict
-    h, w = gt.shape
-    total_pixels = h * w
-    # Reduced batch size further to 10,000 to prevent 'Dst tensor is not initialized' / OOM errors
-    batch_size = 10000 
-    patch_batch = np.zeros((batch_size, window_size, window_size, data.shape[2]), dtype='complex64')
-    coords_batch = []
+    if args.only_gt:
+        print("Using selective GT mapping (skipping full inference)...")
+        # Predict on Train set
+        print(f"Predicting on Train set ({X_train.shape[0]} samples)...")
+        Y_pred_train = predict_by_batching(model, X_train, args.batch_size)
+        y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 # 1-based class
+        
+        # Test set is already predicted as y_pred_test (indices)
+        y_pred_test_labels = y_pred_test + 1
+        
+        # Fill map using coords
+        # coords are (r, c)
+        pred_map[coords_train[:, 0], coords_train[:, 1]] = y_pred_train
+        pred_map[coords_test[:, 0], coords_test[:, 1]] = y_pred_test_labels
+        
+    else:
+        print("Generating full map prediction (memory efficient)...")
+        
+        # Release memory before full inference
+        del X_train, X_test
+        import gc
+        gc.collect()
+        # Note: clearing session might invalidate model if we needed it again, 
+        # but here we use 'model' object. Standard Keras model object survives clear_session? 
+        # Actually clear_session destroys the graph. If I use model.predict after this, it might fail 
+        # if the model is not re-loaded or if it's not eager execution.
+        # Safe to remove clear_session here or move it after.
+        # Given we have the 'model' object loaded in memory, let's keep it safe.
+        
+        margin = int((window_size - 1) / 2)
+        zeroPaddedX = padWithZeros(data, margin=margin)
 
-    count = 0
-    for r in range(h):
-        for c in range(w):
-            # Extract patch
-            patch = zeroPaddedX[r:r+window_size, c:c+window_size]
-            patch_batch[count] = patch
-            coords_batch.append((r, c))
-            count += 1
-            
-            if count == batch_size:
-                # Predict batch
-                patch_batch_input = np.expand_dims(patch_batch, axis=4)
-                preds = model.predict(patch_batch_input, verbose=0)
-                labels = np.argmax(preds, axis=1)
-                
-                # Fill map
-                for idx, (rr, cc) in enumerate(coords_batch):
-                    pred_map[rr, cc] = labels[idx] + 1 # Class labels usually 1-indexed in output mat
-                
-                # Reset
-                count = 0
-                coords_batch = []
-                if (r * w + c) % 100000 == 0:
-                    print(f"Processed {r * w + c}/{total_pixels} pixels...")
+        # Process in chunks to avoid OOM
+        # Total pixels to predict
+        h, w = gt.shape
+        total_pixels = h * w
+        # Reduced batch size further to 10,000 to prevent 'Dst tensor is not initialized' / OOM errors
+        batch_size = 10000 
+        patch_batch = np.zeros((batch_size, window_size, window_size, data.shape[2]), dtype='complex64')
+        coords_batch = []
 
-    # Process remaining
-    if count > 0:
-        patch_batch_input = np.expand_dims(patch_batch[:count], axis=4)
-        preds = model.predict(patch_batch_input, verbose=0)
-        labels = np.argmax(preds, axis=1)
-        for idx, (rr, cc) in enumerate(coords_batch):
-            pred_map[rr, cc] = labels[idx] + 1
+        count = 0
+        for r in range(h):
+            for c in range(w):
+                # Extract patch
+                patch = zeroPaddedX[r:r+window_size, c:c+window_size]
+                patch_batch[count] = patch
+                coords_batch.append((r, c))
+                count += 1
+                
+                if count == batch_size:
+                    # Predict batch
+                    patch_batch_input = np.expand_dims(patch_batch, axis=4)
+                    preds = model.predict(patch_batch_input, verbose=0)
+                    labels = np.argmax(preds, axis=1)
+                    
+                    # Fill map
+                    for idx, (rr, cc) in enumerate(coords_batch):
+                        pred_map[rr, cc] = labels[idx] + 1 # Class labels usually 1-indexed in output mat
+                    
+                    # Reset
+                    count = 0
+                    coords_batch = []
+                    if (r * w + c) % 100000 == 0:
+                        print(f"Processed {r * w + c}/{total_pixels} pixels...")
+
+        # Process remaining
+        if count > 0:
+            patch_batch_input = np.expand_dims(patch_batch[:count], axis=4)
+            preds = model.predict(patch_batch_input, verbose=0)
+            labels = np.argmax(preds, axis=1)
+            for idx, (rr, cc) in enumerate(coords_batch):
+                pred_map[rr, cc] = labels[idx] + 1
 
     Y_pred = pred_map
     name = f"CV_MsAtViT_Full_{dataset_tag}"
