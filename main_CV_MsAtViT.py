@@ -558,8 +558,14 @@ def main():
         # Calculate metrics for Chunked Test Set
         print("Calculating metrics for Chunked Test Set...")
         # Validation/Test prediction loop
-        chunk_size = 500000
+        chunk_size = 300
         y_pred_test_all = []
+        
+        # DEBUG: Limit test set for quick debugging as requested
+        print("DEBUG MODE: Limiting test set to 1000 samples for fast failure analysis...")
+        debug_limit = 1000
+        coords_test = coords_test[:debug_limit]
+        y_test = y_test[:debug_limit]
         
         num_test = len(coords_test)
         for i in range(0, num_test, chunk_size):
@@ -575,6 +581,12 @@ def main():
             gc.collect()
 
         y_pred_test = np.concatenate(y_pred_test_all)
+        
+        print(f"DEBUG: y_test shape: {y_test.shape}, dtype: {y_test.dtype}")
+        print(f"DEBUG: y_test examples: {y_test[:5]}")
+        print(f"DEBUG: y_pred_test shape: {y_pred_test.shape}, dtype: {y_pred_test.dtype}")
+        print(f"DEBUG: y_pred_test examples: {y_pred_test[:5]}")
+        print(f"DEBUG: y_test unique types: {type(y_test)}")
         
         kappa = cohen_kappa_score(y_test, y_pred_test)
         oa = accuracy_score(y_test, y_pred_test)
@@ -614,7 +626,7 @@ def main():
             # Test set prediction (Chunked or Standard)
             if args.max_samples == -1:
                 print("Predicting on Test set in chunks (500k)...")
-                chunk_size = 500000
+                chunk_size = 300
                 y_pred_test_all = []
                 
                 num_test = len(coords_test)
