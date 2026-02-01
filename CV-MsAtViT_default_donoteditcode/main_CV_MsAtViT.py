@@ -78,35 +78,35 @@ data = Standardize_data(data)
 
 
 
-    if args.max_samples == -1 and args.only_gt:
-        # --- Chunked Processing Strategy ---
-        # 1. Get all valid coordinates
-        print("Getting valid coordinates (no patching yet)...")
-        coords = get_gt_coords(gt, removeZeroLabels=True)
-        y_all_valid = gt[coords[:, 0], coords[:, 1]]
-        
-        # 2. Split coordinates
-        print(f"Splitting {len(coords)} samples...")
-        # We pass None for X, so we get None back for X_train/X_test
-        _, _, y_train, y_test, coords_train, coords_test = splitTrainTestSet(None, y_all_valid, test_ratio, coords=coords, randomState=42)
-        
-        # 3. Load Train patches
-        print(f"Loading Train patches ({len(coords_train)} samples)...")
-        X_train = extract_patches_from_coords(data, coords_train, windowSize=windowSize)
-        X_train = np.expand_dims(X_train, axis=4)
-        y_train = y_train - 1 # 0-indexed for training
-        y_test = y_test - 1   # 0-indexed for evaluation
-        
-        # 4. X_test is NOT loaded yet, will be processed in chunks
-        X_test = None 
-        
-    else:
-        # --- Original Logic ---
-        X_coh, y, coords = createImageCubes(data, gt, windowSize, max_samples=max_samples, random_state=42)
-        X_coh = np.expand_dims(X_coh, axis=4)
-        
-        X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords, randomState=42)
-        del X_coh  # save RAM
+if args.max_samples == -1 and args.only_gt:
+    # --- Chunked Processing Strategy ---
+    # 1. Get all valid coordinates
+    print("Getting valid coordinates (no patching yet)...")
+    coords = get_gt_coords(gt, removeZeroLabels=True)
+    y_all_valid = gt[coords[:, 0], coords[:, 1]]
+    
+    # 2. Split coordinates
+    print(f"Splitting {len(coords)} samples...")
+    # We pass None for X, so we get None back for X_train/X_test
+    _, _, y_train, y_test, coords_train, coords_test = splitTrainTestSet(None, y_all_valid, test_ratio, coords=coords, randomState=42)
+    
+    # 3. Load Train patches
+    print(f"Loading Train patches ({len(coords_train)} samples)...")
+    X_train = extract_patches_from_coords(data, coords_train, windowSize=windowSize)
+    X_train = np.expand_dims(X_train, axis=4)
+    y_train = y_train - 1 # 0-indexed for training
+    y_test = y_test - 1   # 0-indexed for evaluation
+    
+    # 4. X_test is NOT loaded yet, will be processed in chunks
+    X_test = None 
+    
+else:
+    # --- Original Logic ---
+    X_coh, y, coords = createImageCubes(data, gt, windowSize, max_samples=max_samples, random_state=42)
+    X_coh = np.expand_dims(X_coh, axis=4)
+    
+    X_train, X_test, y_train, y_test, coords_train, coords_test = splitTrainTestSet(X_coh, y, test_ratio, coords=coords, randomState=42)
+    del X_coh  # save RAM
 
 
 total = 0
