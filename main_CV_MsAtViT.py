@@ -428,6 +428,12 @@ def parse_args():
         default=42,
         help="Random seed for reproducibility (default: 42)",
     )
+    parser.add_argument(
+        "--transformer-layers",
+        type=int,
+        default=4,
+        help="Number of transformer layers (default: 4)",
+    )
     return parser.parse_args()
 
 
@@ -522,6 +528,7 @@ def main():
         dataset=dataset,
         window_size=window_size,
         lr=lr,
+        transformer_layers=args.transformer_layers,
         layer_norm_type=args.layer_norm_type,
         activation_type=args.activation_type,
         coord_activation=args.coord_activation,
