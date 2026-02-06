@@ -444,7 +444,7 @@ class ModReLU(tf.keras.layers.Layer):
         channel_axis = -1
         self.b = self.add_weight(
             shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(0.0), # Initialize b near 0
+            initializer=tf.constant_initializer(-0.1), # Initialize b to -0.1
             trainable=True,
             name="b"
         )
