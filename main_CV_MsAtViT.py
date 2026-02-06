@@ -422,6 +422,12 @@ def parse_args():
         action="store_true",
         help="If True, restrict processing to GT pixels only and skip full map inference.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility (default: 42)",
+    )
     return parser.parse_args()
 
 
@@ -454,7 +460,9 @@ def predict_by_batching(model, input_tensor, batch_size):
 
 def main():
     args = parse_args()
-    args = parse_args()
+    # Set global seed for reproducibility
+    tf.keras.utils.set_random_seed(args.seed)
+    
     dataset = args.dataset
     if dataset == 'Baltrum':
         dataset = f"Baltrum_{args.baltrum_band}_{args.baltrum_fp}"
