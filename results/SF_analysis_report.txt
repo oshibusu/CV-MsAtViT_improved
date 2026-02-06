@@ -1,0 +1,107 @@
+Loading Ground Truth for SF...
+
+==================================================
+Analyzing: propose_CV_MsAtViT_SF.mat
+==================================================
+Non-zero labels count: 802302
+Zero labels count (Background): 119298
+Ground Truth non-zero count: 802302
+Ground Truth zero count: 119298
+-> Matches GT count exactly.
+
+--- Classification Report ---
+              precision    recall  f1-score   support
+
+   Bare Soil     0.8713    0.8040    0.8363     13701
+    Mountain     0.9756    0.9580    0.9667     62731
+       Water     0.9899    0.9930    0.9914    329566
+       Urban     0.9848    0.9838    0.9843    342795
+  Vegetation     0.8711    0.8960    0.8833     53509
+
+    accuracy                         0.9766    802302
+   macro avg     0.9385    0.9269    0.9324    802302
+weighted avg     0.9767    0.9766    0.9766    802302
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Bare Soil) (Total: 13701): Correct: 80.40%
+  -> Confused as Class 3 (Water): 13.75% (1884 samples)
+  -> Confused as Class 4 (Urban): 3.79% (519 samples)
+  -> Confused as Class 5 (Vegetation): 1.45% (199 samples)
+  -> Confused as Class 2 (Mountain): 0.61% (84 samples)
+
+Class 2 (Mountain) (Total: 62731): Correct: 95.80%
+  -> Confused as Class 5 (Vegetation): 2.20% (1379 samples)
+  -> Confused as Class 3 (Water): 1.86% (1169 samples)
+
+Class 3 (Water) (Total: 329566): Correct: 99.30%
+  -> Confused as Class 1 (Bare Soil): 0.28% (929 samples)
+  -> Confused as Class 5 (Vegetation): 0.17% (572 samples)
+  -> Confused as Class 2 (Mountain): 0.14% (469 samples)
+  -> Confused as Class 4 (Urban): 0.10% (339 samples)
+
+Class 4 (Urban) (Total: 342795): Correct: 98.38%
+  -> Confused as Class 5 (Vegetation): 1.44% (4945 samples)
+  -> Confused as Class 1 (Bare Soil): 0.14% (470 samples)
+
+Class 5 (Vegetation) (Total: 53509): Correct: 89.60%
+  -> Confused as Class 4 (Urban): 8.02% (4292 samples)
+  -> Confused as Class 2 (Mountain): 1.75% (936 samples)
+  -> Confused as Class 1 (Bare Soil): 0.37% (196 samples)
+  -> Confused as Class 3 (Water): 0.27% (143 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/propose_CV_MsAtViT_SF_cm.png
+
+==================================================
+Analyzing: default_CV_MsAtViT_SF.mat
+==================================================
+Non-zero labels count: 802302
+Zero labels count (Background): 119298
+Ground Truth non-zero count: 802302
+Ground Truth zero count: 119298
+-> Matches GT count exactly.
+
+--- Classification Report ---
+              precision    recall  f1-score   support
+
+   Bare Soil     0.7203    0.9144    0.8058     13701
+    Mountain     0.9680    0.9839    0.9759     62731
+       Water     0.9959    0.9834    0.9896    329566
+       Urban     0.9916    0.9844    0.9880    342795
+  Vegetation     0.8898    0.9220    0.9056     53509
+
+    accuracy                         0.9786    802302
+   macro avg     0.9131    0.9576    0.9330    802302
+weighted avg     0.9801    0.9786    0.9791    802302
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Bare Soil) (Total: 13701): Correct: 91.44%
+  -> Confused as Class 3 (Water): 6.72% (921 samples)
+  -> Confused as Class 4 (Urban): 1.50% (205 samples)
+  -> Confused as Class 5 (Vegetation): 0.34% (46 samples)
+
+Class 2 (Mountain) (Total: 62731): Correct: 98.39%
+  -> Confused as Class 5 (Vegetation): 1.43% (894 samples)
+  -> Confused as Class 3 (Water): 0.11% (68 samples)
+
+Class 3 (Water) (Total: 329566): Correct: 98.34%
+  -> Confused as Class 1 (Bare Soil): 1.00% (3311 samples)
+  -> Confused as Class 5 (Vegetation): 0.34% (1123 samples)
+  -> Confused as Class 2 (Mountain): 0.30% (988 samples)
+
+Class 4 (Urban) (Total: 342795): Correct: 98.44%
+  -> Confused as Class 5 (Vegetation): 1.18% (4050 samples)
+  -> Confused as Class 1 (Bare Soil): 0.28% (974 samples)
+
+Class 5 (Vegetation) (Total: 53509): Correct: 92.20%
+  -> Confused as Class 4 (Urban): 4.82% (2577 samples)
+  -> Confused as Class 2 (Mountain): 1.88% (1004 samples)
+  -> Confused as Class 1 (Bare Soil): 1.00% (534 samples)
+  -> Confused as Class 3 (Water): 0.11% (57 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/default_CV_MsAtViT_SF_cm.png

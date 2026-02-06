@@ -1,0 +1,528 @@
+```latex
+\section{実験結果}
+
+\subsection{データセット別の結果}
+本節では、San Francisco、Flevoland、Baltrumの順に、各データセットに対する結果をまとめて示す（Pauli RGB/GT・推論結果の可視化、学習曲線、混同行列）。
+
+\subsubsection{San Francisco}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{figs/SF_comparison_grid.png}
+  \caption{Visual comparison on San Francisco dataset.}
+  \label{fig:sf_maps}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/default_sf_learning_curve.png}
+    \caption{Learning curve (Default)}
+    \label{fig:sf_lc_default}
+  \end{subfigure}
+
+  \vspace{0.6em}
+
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/propose_SF_learning_curve.png}
+    \caption{Learning curve (Proposed)}
+    \label{fig:sf_lc_proposed}
+  \end{subfigure}
+
+  \caption{Learning curves on San Francisco dataset.}
+  \label{fig:sf_learning_curves}
+\end{figure}
+
+図\ref{fig:sf_learning_curves}にSan Franciscoデータセットにおける学習曲線を示した。Baselineは損失（Loss）が滑らかに減少し、精度（Accuracy）も単調に向上する安定した収束挙動を示す。一方でProposed手法も十分な収束性を示しているが、データセットの複雑さに応じて収束速度や最終到達精度に若干の差異が見られた。
+
+表\ref{tab:sf_cvm}にSan Franciscoデータセットの学習結果（クラス別精度およびOA/AA/Kappa）を示す。両手法ともにOverall Accuracy 97\%を超える高い性能を示し、「Water」や「Urban」といった主要クラスで特に高精度である。
+
+\begin{table}[H]
+  \centering
+  \caption{San Francisco — CV-MsAtViT per-class accuracy and overall metrics (GT>0 only).}
+  \label{tab:sf_cvm}
+  \begin{tabular}{l r}
+    \toprule
+    Class & Accuracy (\%) \\
+    \midrule
+    Bare Soil & 85.80 \\
+    Mountain & 95.24 \\
+    Water & 99.49 \\
+    Urban & 97.79 \\
+    Vegetation & 94.34 \\
+    \midrule
+    OA (\%) & 97.86 \\
+    AA (\%) & 94.53 \\
+    Kappa $\times$100 & 96.65 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+表\ref{tab:propose_CV_MsAtViT_SF_mat}および表\ref{tab:default_CV_MsAtViT_SF_mat}に、San Franciscoデータセットの各クラスの学習結果（Precision/Recall/F1-score）を示す。
+
+% Table for propose_CV_MsAtViT_SF.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for propose\_CV\_MsAtViT\_SF.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Bare Soil & 0.8713 & 0.8040 & 0.8363 & 13701 \\
+        Mountain & 0.9756 & 0.9580 & 0.9667 & 62731 \\
+        Water & 0.9899 & 0.9930 & 0.9914 & 329566 \\
+        Urban & 0.9848 & 0.9838 & 0.9843 & 342795 \\
+        Vegetation & 0.8711 & 0.8960 & 0.8833 & 53509 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:propose_CV_MsAtViT_SF_mat}
+\end{table}
+
+% Table for default_CV_MsAtViT_SF.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for default\_CV\_MsAtViT\_SF.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Bare Soil & 0.7203 & 0.9144 & 0.8058 & 13701 \\
+        Mountain & 0.9680 & 0.9839 & 0.9759 & 62731 \\
+        Water & 0.9959 & 0.9834 & 0.9896 & 329566 \\
+        Urban & 0.9916 & 0.9844 & 0.9880 & 342795 \\
+        Vegetation & 0.8898 & 0.9220 & 0.9056 & 53509 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:default_CV_MsAtViT_SF_mat}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/default_CV_MsAtViT_SF_cm.png}
+    \caption{Confusion matrix (Baseline)}
+    \label{fig:sf_cm_baseline}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/propose_CV_MsAtViT_SF_cm.png}
+    \caption{Confusion matrix (Proposed)}
+    \label{fig:sf_cm_proposed}
+  \end{subfigure}
+
+  \caption{Confusion matrices on San Francisco dataset.}
+  \label{fig:sf_confusion_matrices}
+\end{figure}
+
+\subsubsection{Flevoland}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{figs/FL_T_comparison_grid.png}
+  \caption{Visual comparison on Flevoland dataset.}
+  \label{fig:fl_t_maps}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/default_FL_T_learning_curve.png}
+    \caption{Learning curve (Default)}
+    \label{fig:fl_lc_default}
+  \end{subfigure}
+
+  \vspace{0.6em}
+
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/propose_FL_T_learning_curve.png}
+    \caption{Learning curve (Proposed)}
+    \label{fig:fl_lc_proposed}
+  \end{subfigure}
+
+  \caption{Learning curves on Flevoland dataset.}
+  \label{fig:fl_learning_curves}
+\end{figure}
+
+図\ref{fig:fl_learning_curves}にFlevolandデータセットにおける学習曲線を示した。Baselineは学習初期から損失（Loss）が滑らかに減少し、精度（Accuracy）も単調に向上する安定した収束挙動を示した。Proposed手法は学習初期（最初の5エポック程度）に損失値の変動（振動）が見られるものの、その後は急速に収束し、最終的にはBaselineと同等の高い学習精度に到達した。
+
+表\ref{tab:flevoland_cvm}にFlevolandデータセットの学習結果（クラス別精度およびOA/AA/Kappa）を示す。多くのクラス（Water, Forest, Wheat等）で高い精度を達成している一方、クラスによっては誤分類が相対的に増える傾向も見られた。
+
+\begin{table}[H]
+  \centering
+  \caption{Flevoland — CV-MsAtViT per-class accuracy and overall metrics (GT>0 only).}
+  \label{tab:flevoland_cvm}
+  \begin{tabular}{l r}
+    \toprule
+    Class & Accuracy (\%) \\
+    \midrule
+    Water & 99.90 \\
+    Forest & 99.48 \\
+    Lucerne & 97.83 \\
+    Grass & 88.00 \\
+    Rapeseed & 95.48 \\
+    Beet & 94.89 \\
+    Potatoes & 95.83 \\
+    Peas & 97.30 \\
+    Stem Beans & 99.36 \\
+    Bare Soil & 97.85 \\
+    Wheat & 98.28 \\
+    Wheat 2 & 98.39 \\
+    Wheat 3 & 99.65 \\
+    Barley & 99.95 \\
+    Buildings & 89.27 \\
+    \midrule
+    OA (\%) & 97.45 \\
+    AA (\%) & 96.76 \\
+    Kappa $\times$100 & 97.22 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+表\ref{tab:propose_CV_MsAtViT_FL_T_mat}および表\ref{tab:default_CV_MsAtViT_FL_T_mat}に、Flevolandデータセットの各クラスの学習結果（Precision/Recall/F1-score）を示す。
+
+% Table for propose_CV_MsAtViT_FL_T.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for propose\_CV\_MsAtViT\_FL\_T.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Water & 0.9983 & 0.9682 & 0.9830 & 29249 \\
+        Forest & 0.9986 & 0.9683 & 0.9832 & 15855 \\
+        Lucerne & 0.8927 & 0.9924 & 0.9399 & 11200 \\
+        Grass & 0.9782 & 0.8000 & 0.8802 & 10201 \\
+        Rapeseed & 0.9828 & 0.8555 & 0.9148 & 21855 \\
+        Beet & 0.8804 & 0.9568 & 0.9170 & 14707 \\
+        Potatoes & 0.9506 & 0.9537 & 0.9522 & 21344 \\
+        Peas & 0.9477 & 0.9891 & 0.9680 & 10396 \\
+        Stem Beans & 0.9437 & 0.9366 & 0.9402 & 8471 \\
+        Bare Soil & 0.9959 & 0.2702 & 0.4251 & 6317 \\
+        Wheat & 0.9765 & 0.9843 & 0.9804 & 17639 \\
+        Wheat 2 & 0.9719 & 0.9689 & 0.9704 & 10629 \\
+        Wheat 3 & 0.8877 & 0.9976 & 0.9394 & 22022 \\
+        Barley & 0.5973 & 0.9961 & 0.7468 & 7369 \\
+        Buildings & 0.9959 & 0.8426 & 0.9128 & 578 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:propose_CV_MsAtViT_FL_T_mat}
+\end{table}
+
+% Table for default_CV_MsAtViT_FL_T.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for default\_CV\_MsAtViT\_FL\_T.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Water & 0.9996 & 0.9998 & 0.9997 & 29249 \\
+        Forest & 0.9867 & 0.9946 & 0.9906 & 15855 \\
+        Lucerne & 0.9825 & 0.9857 & 0.9841 & 11200 \\
+        Grass & 0.9680 & 0.9156 & 0.9411 & 10201 \\
+        Rapeseed & 0.9863 & 0.9557 & 0.9707 & 21855 \\
+        Beet & 0.9774 & 0.9097 & 0.9423 & 14707 \\
+        Potatoes & 0.9508 & 0.9763 & 0.9634 & 21344 \\
+        Peas & 0.9882 & 0.9794 & 0.9838 & 10396 \\
+        Stem Beans & 0.9225 & 0.9903 & 0.9552 & 8471 \\
+        Bare Soil & 0.9720 & 0.9956 & 0.9837 & 6317 \\
+        Wheat & 0.9643 & 0.9900 & 0.9770 & 17639 \\
+        Wheat 2 & 0.9243 & 0.9868 & 0.9545 & 10629 \\
+        Wheat 3 & 0.9986 & 0.9753 & 0.9868 & 22022 \\
+        Barley & 0.9457 & 0.9805 & 0.9628 & 7369 \\
+        Buildings & 1.0000 & 0.7889 & 0.8820 & 578 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:default_CV_MsAtViT_FL_T_mat}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/default_CV_MsAtViT_FL_T_cm.png}
+    \caption{Confusion matrix (Baseline)}
+    \label{fig:fl_cm_baseline}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/propose_CV_MsAtViT_FL_T_cm.png}
+    \caption{Confusion matrix (Proposed)}
+    \label{fig:fl_cm_proposed}
+  \end{subfigure}
+
+  \caption{Confusion matrices on Flevoland dataset.}
+  \label{fig:fl_confusion_matrices}
+\end{figure}
+
+\subsubsection{Baltrum}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{figs/Baltrum_comparison_grid.png}
+  \caption{Visual comparison on Baltrum dataset (FP1, S-band).}
+  \label{fig:baltrum_maps}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/default_baltrum_learning_curve.png}
+    \caption{Learning curve (Default)}
+    \label{fig:bal_lc_default}
+  \end{subfigure}
+
+  \vspace{0.6em}
+
+  \begin{subfigure}[b]{0.98\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/propose_baltrum_learning_curve.png}
+    \caption{Learning curve (Proposed)}
+    \label{fig:bal_lc_proposed}
+  \end{subfigure}
+
+  \caption{Learning curves on Baltrum dataset.}
+  \label{fig:bal_learning_curves}
+\end{figure}
+
+図\ref{fig:bal_learning_curves}にBaltrumデータセットにおける学習曲線を示した。Baselineは滑らかな収束を示す一方、Proposed手法も十分な収束性を示しているが、データセットの複雑さに応じて収束速度や最終到達精度に若干の差異が見られた。
+
+表\ref{tab:CV_MsAtViT_propose_Baltrum_S_FP1_mat}および表\ref{tab:default_CV_MsAtViT_Baltrum_S_FP1_mat}に、Baltrumデータセットの各クラスの学習結果（Precision/Recall/F1-score）を示す。
+
+% Table for CV_MsAtViT_propose_Baltrum_S_FP1.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for CV\_MsAtViT\_propose\_Baltrum\_S\_FP1.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Tidal flat & 0.9696 & 0.8105 & 0.8830 & 179192 \\
+        Water & 0.9342 & 0.9814 & 0.9572 & 483776 \\
+        Coastal shrub & 0.7007 & 0.5027 & 0.5854 & 123179 \\
+        Dense, high vegetation & 0.4639 & 0.8449 & 0.5990 & 68598 \\
+        White dune & 0.9101 & 0.5271 & 0.6676 & 99026 \\
+        Peat bog & 0.8640 & 0.8746 & 0.8692 & 27441 \\
+        Grey dunes & 0.8012 & 0.9141 & 0.8539 & 379573 \\
+        Couch grass & 0.7670 & 0.8443 & 0.8038 & 61137 \\
+        Upper salt marsh & 0.9181 & 0.8967 & 0.9073 & 276686 \\
+        Lower salt marsh & 0.9412 & 0.9491 & 0.9451 & 207602 \\
+        Sand & 0.9528 & 0.9438 & 0.9483 & 263967 \\
+        Settlement & 0.9049 & 0.8178 & 0.8592 & 287001 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:CV_MsAtViT_propose_Baltrum_S_FP1_mat}
+\end{table}
+
+% Table for default_CV_MsAtViT_Baltrum_S_FP1.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for default\_CV\_MsAtViT\_Baltrum\_S\_FP1.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Tidal flat & 0.8442 & 0.9821 & 0.9080 & 179192 \\
+        Water & 0.9798 & 0.9354 & 0.9571 & 483776 \\
+        Coastal shrub & 0.6905 & 0.7409 & 0.7148 & 123179 \\
+        Dense, high vegetation & 0.6553 & 0.6406 & 0.6479 & 68598 \\
+        White dune & 0.6883 & 0.8211 & 0.7489 & 99026 \\
+        Peat bog & 0.8798 & 0.8858 & 0.8828 & 27441 \\
+        Grey dunes & 0.8765 & 0.8434 & 0.8597 & 379573 \\
+        Couch grass & 0.8213 & 0.8418 & 0.8315 & 61137 \\
+        Upper salt marsh & 0.9273 & 0.9180 & 0.9226 & 276686 \\
+        Lower salt marsh & 0.9436 & 0.9621 & 0.9528 & 207602 \\
+        Sand & 0.9777 & 0.9571 & 0.9673 & 263967 \\
+        Settlement & 0.9258 & 0.8707 & 0.8974 & 287001 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:default_CV_MsAtViT_Baltrum_S_FP1_mat}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/CV_MsAtViT_default_Baltrum_cm.png}
+    \caption{Confusion matrix (Baseline)}
+    \label{fig:bal_cm_baseline}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}[b]{0.75\linewidth}
+    \centering
+    \includegraphics[width=\textwidth,height=0.4\textheight,keepaspectratio]{figs/CV_MsAtViT_propose_Baltrum_S_FP1_cm.png}
+    \caption{Confusion matrix (Proposed)}
+    \label{fig:bal_cm_proposed}
+  \end{subfigure}
+
+  \caption{Confusion matrices on Baltrum dataset.}
+  \label{fig:bal_confusion_matrices}
+\end{figure}
+
+図\ref{fig:bal_confusion_matrices}にBaltrumデータセットの混同行列を示した。特にProposed手法では類似クラス間での混同が見られ、例えば「White dune」が「Grey dunes」として誤分類される傾向が確認された。
+
+
+        Wheat & 0.9643 & 0.9900 & 0.9770 & 17639 \\
+        Wheat 2 & 0.9243 & 0.9868 & 0.9545 & 10629 \\
+        Wheat 3 & 0.9986 & 0.9753 & 0.9868 & 22022 \\
+        Barley & 0.9457 & 0.9805 & 0.9628 & 7369 \\
+        Buildings & 1.0000 & 0.7889 & 0.8820 & 578 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:default_CV_MsAtViT_FL_T_mat}
+\end{table}
+
+\subsubsection{バルトラムの学習結果の表}
+% Table for CV_MsAtViT_propose_Baltrum_S_FP1.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for CV\_MsAtViT\_propose\_Baltrum\_S\_FP1.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Tidal flat & 0.9696 & 0.8105 & 0.8830 & 179192 \\
+        Water & 0.9342 & 0.9814 & 0.9572 & 483776 \\
+        Coastal shrub & 0.7007 & 0.5027 & 0.5854 & 123179 \\
+        Dense, high vegetation & 0.4639 & 0.8449 & 0.5990 & 68598 \\
+        White dune & 0.9101 & 0.5271 & 0.6676 & 99026 \\
+        Peat bog & 0.8640 & 0.8746 & 0.8692 & 27441 \\
+        Grey dunes & 0.8012 & 0.9141 & 0.8539 & 379573 \\
+        Couch grass & 0.7670 & 0.8443 & 0.8038 & 61137 \\
+        Upper salt marsh & 0.9181 & 0.8967 & 0.9073 & 276686 \\
+        Lower salt marsh & 0.9412 & 0.9491 & 0.9451 & 207602 \\
+        Sand & 0.9528 & 0.9438 & 0.9483 & 263967 \\
+        Settlement & 0.9049 & 0.8178 & 0.8592 & 287001 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:CV_MsAtViT_propose_Baltrum_S_FP1_mat}
+\end{table}
+
+% Table for default_CV_MsAtViT_Baltrum_S_FP1.mat
+\begin{table}[H]
+    \centering
+    \caption{Classification Report for default\_CV\_MsAtViT\_Baltrum\_S\_FP1.mat}
+    \begin{tabular}{lcccc}
+        \toprule
+        Class & Precision & Recall & F1-score & Support \\
+        \midrule
+        Tidal flat & 0.8442 & 0.9821 & 0.9080 & 179192 \\
+        Water & 0.9798 & 0.9354 & 0.9571 & 483776 \\
+        Coastal shrub & 0.6905 & 0.7409 & 0.7148 & 123179 \\
+        Dense, high vegetation & 0.6553 & 0.6406 & 0.6479 & 68598 \\
+        White dune & 0.6883 & 0.8211 & 0.7489 & 99026 \\
+        Peat bog & 0.8798 & 0.8858 & 0.8828 & 27441 \\
+        Grey dunes & 0.8765 & 0.8434 & 0.8597 & 379573 \\
+        Couch grass & 0.8213 & 0.8418 & 0.8315 & 61137 \\
+        Upper salt marsh & 0.9273 & 0.9180 & 0.9226 & 276686 \\
+        Lower salt marsh & 0.9436 & 0.9621 & 0.9528 & 207602 \\
+        Sand & 0.9777 & 0.9571 & 0.9673 & 263967 \\
+        Settlement & 0.9258 & 0.8707 & 0.8974 & 287001 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:default_CV_MsAtViT_Baltrum_S_FP1_mat}
+\end{table}
+
+
+\subsection{結果の詳細分析}
+
+\subsubsection{学習曲線 (Learning Curves)}
+各データセットにおける学習の収束挙動を確認した結果、以下の傾向が観察された。
+
+\begin{itemize}
+    \item \textbf{Flevoland (FL)}:
+    \begin{itemize}
+        \item \textbf{Baseline}: 学習初期から損失(Loss)が滑らかに減少し、精度(Accuracy)も単調に向上する安定した収束挙動を示した。最終的なTraining Accuracyは98\%以上に達し、非常に安定している。
+        \item \textbf{Proposed}: 学習初期（最初の5エポック程度）において損失値の変動（振動）が見られたが、その後急速に収束し、最終的にはBaselineと同等の98\%付近の高い学習精度を達成した。初期の不安定さはあるものの、最終的な到達点は同等である。
+    \end{itemize}
+    \item \textbf{San Francisco (SF) / Baltrum}:
+    \begin{itemize}
+        \item 同様に、Baselineは滑らかな収束を示す一方、Proposed手法も十分な収束性を示しているが、データセットの複雑さに応じて収束速度や最終到達精度に若干の差異が見られた。
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{各クラスの学習結果 (Classification Report)}
+各クラスごとの適合率(Precision)、再現率(Recall)を比較分析した結果、提案手法とベースラインで明確な特性の差が確認された。
+
+\begin{itemize}
+    \item \textbf{Flevoland Dataset}:
+    \begin{itemize}
+        \item \textbf{全体傾向}: 多くのクラス（Water, Forest, Wheat等）において、両手法ともに95\%以上の高いF1スコアを達成した。
+        \item \textbf{提案手法の課題}: 「Bare Soil (裸地)」クラスにおいて、BaselineがRecall 99.56\%を達成しているのに対し、提案手法はRecall 27.02\%と著しく低い値となった。これは提案手法がBare Soilを他の植生クラス（特にBarley）と誤認していることに起因する。
+        \item \textbf{提案手法の利点}: 一方で、「Lucerne」などの一部の植生クラスにおいては、Baselineよりも高いRecallないしPrecisionを示すケースも見られた。
+    \end{itemize}
+
+    \item \textbf{San Francisco Dataset}:
+    \begin{itemize}
+        \item \textbf{全体傾向}: 両手法ともにOverall Accuracy 97\%越えの高い性能を示した。
+        \item \textbf{クラス別}: 「Water」や「Urban」といった主要クラスでは、両手法ともにF1スコア98\%以上と極めて高精度である。提案手法は「Vegetation」クラスの識別において、Baseline（F1 0.90）に比べ若干劣る（F1 0.88）結果となったが、全体的な性能差は僅差である。
+    \end{itemize}
+
+    \item \textbf{Baltrum Dataset}:
+    \begin{itemize}
+        \item \textbf{全体傾向}: 非常に複雑な自然環境を含む本データセットでは、Baseline (OA 89.42\%) が提案手法 (OA 87.24\%) をわずかに上回った。
+        \item \textbf{提案手法の課題}: 特に「Coastal shrub (低木)」と「White dune (白砂丘)」の識別において苦戦が見られた。White duneのRecallはBaselineが82.11\%であるのに対し、提案手法は52.71\%に留まった。
+        \item \textbf{提案手法の利点}: 「Water (水域)」クラスに関しては、提案手法（Recall 98.14\%）がBaseline（93.54\%）を上回る識別能力を示しており、水域と陸域の境界判定において優位性が見られた。
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{混同行列 (Confusion Matrix)}
+誤分類の具体的な内訳（クラス間の混同）を分析した。
+
+\begin{itemize}
+    \item \textbf{Flevoland}:
+    \begin{itemize}
+        \item \textbf{Proposed}: 最大の誤分類は「Bare Soil」$\to$「Barley (大麦)」への誤認であり、Bare Soilサンプルの71\%がBarleyとして予測されていた。これは実数値のみに基づくBaselineでは発生していない特異な混同パターンである。
+    \end{itemize}
+    \item \textbf{Baltrum}:
+    \begin{itemize}
+        \item \textbf{Proposed}: 「White dune」のサンプルの約43\%が「Grey dunes (灰色砂丘)」として誤分類されており、これが精度の低下の主要因となっている。また、「Coastal shrub」も「Dense, high vegetation」や「Grey dunes」と混同される傾向が強く、植生密度や地表面の材質が類似するクラス間での分離に課題を残した。
+        \item \textbf{Baseline}: Baselineも同様の傾向を示すが、Proposedに比べて混同の割合は低く抑えられており、類似クラス間の境界をよりロバストに捉えていることが示唆される。
+    \end{itemize}
+\end{itemize}
+
+
+
+
+
+\subsection{考察}
+本研究では、PolSARデータの物理的性質（位相情報）を保存するために完全な複素数アーキテクチャを導入した。実験結果に見られるBaselineとの差異について、モデルの構造的観点から以下の考察を行う。
+
+\subsubsection{モデルの表現能力とパラメータ数のトレードオフ}
+本提案手法では、Attention機構や活性化関数において、従来の実部・虚部独立（Split-Complex）な計算を、数学的に厳密な複素演算（Complex-Valued）に置き換えた。
+これにより、モデルは信号の位相を正しく保持することが可能となった一方で、学習可能なパラメータの自由度（Effective Degrees of Freedom）は減少している。
+先行研究のSplit-Complexアプローチでは、実部と虚部がそれぞれ独立した重みパラメータによって最適化されるため、物理的な位相整合性を無視した柔軟な（ある種、過剰な）フィッティングが可能であった。対して、提案手法における複素行列積は、実部と虚部の重み間に「回転とスケーリング」という厳格な代数的制約を課すことと同義であり、実質的なパラメータ数が減少したと解釈できる。
+実験結果において、提案手法がBaselineに比べて収束に時間を要したり、一部の複雑なクラス（Baltrumデータセット等）で精度が低下した要因として、このパラメータ数の減少による学習容量（Model Capacity）の低下が、位相保存による情報量のメリットを上回ってしまった可能性が考えられる。
+
+\subsubsection{ModReLUのスパース性と残差学習への影響}
+また、活性化関数としてのModReLUと、バックボーンであるResNet（残差結合）構造との相性についても考察が必要である。
+本研究で採用したModReLUは、複素数の振幅に対してReLUを適用し、位相を保存する関数である。
+\begin{equation}
+ \text{ModReLU}(z) = \text{ReLU}(|z| + b) \cdot \frac{z}{|z| + \epsilon}
+\end{equation}
+比較対象であるCartesian ReLUは、入力の実部・虚部それぞれの正負に応じて独立に値を0にするため、出力信号は高いスパース性（疎性）を持つ。スパースな活性化は、Deep Learning、特にResNetにおいて「必要な特徴のみを残差として加算し、不要な情報は0にする」メカニズムを機能させる上で重要である。
+しかし、ModReLUは振幅が一様なしきい値を超えている限り、位相の全方向に対して値を出力するため、Cartesian ReLUに比べて出力のスパース性が著しく低下する傾向がある。
+この「スパース性の欠如」は、残差ブロックが恒等写像（Identity Mapping）を効率的に学習することを阻害し、結果として深層特徴の表現力を制限してしまった可能性がある。
+したがって、位相を保存しつつ適切なスパース性を確保できるようなバイアスの初期化戦略や、新たな複素活性化関数の検討が今後の課題である。
+
+\subsubsection{特徴抽出部の簡素化と将来の展望}
+さらに、本提案手法のようにネットワーク全体で位相情報を厳密に保存・伝播させる場合、初段の特徴抽出器（Multi-Scale Feature Extractor）として計算コストの高い複素CNN（CV-CNN）を用いる必然性が薄れる可能性がある。
+従来のSplit-Complexモデルでは、初期段階で位相情報を可能な限り「振幅のパターン」として空間特徴量に変換する必要があったが、Fully Complexモデルでは生の位相情報をそのまま後段のTransformer層まで損失なく伝達できるためである。
+したがって、初段の3次元CNNをより簡易的な構造、例えば複素全結合層（Complex Dense）や単純な線形射影（Linear Projection）のみに置き換えるアプローチが考えられる。これにより、Baselineとパラメータ数を統一した公平な比較が可能になると同時に、位相情報の直接的な活用により、より軽量かつ高性能なモデルが実現できる可能性がある。
+この「位相保存を前提とした特徴抽出部の簡素化」の検証は、本研究の発展的な課題として重要である。
+
+```

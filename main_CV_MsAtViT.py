@@ -9,7 +9,7 @@ import numpy as np
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, classification_report
 from Load_Data import load_data
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords, ModReLU, ModSigmoid, ModTanhScaled
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -208,6 +208,47 @@ class BatchTraceCallback(keras.callbacks.Callback):
                 "inputs": inputs,
                 "depths": depths,
             }
+
+class BiasMonitorCallback(keras.callbacks.Callback):
+    """
+    Callback to record learnable bias 'b' of ModReLU, ModSigmoid, and ModTanhScaled layers.
+    """
+    def __init__(self, dataset_tag):
+        super().__init__()
+        self.dataset_tag = dataset_tag
+        self.base_dir = os.path.join("results", "bias_monitors", dataset_tag)
+        self.csv_path = os.path.join(self.base_dir, "bias_values.csv")
+
+    def on_train_begin(self, logs=None):
+        os.makedirs(self.base_dir, exist_ok=True)
+        with open(self.csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["epoch", "layer_name", "channel_index", "value"])
+
+    def on_epoch_end(self, epoch, logs=None):
+        target_layers = []
+        for layer in self.model.layers:
+            # Check for target classes
+            if isinstance(layer, (ModReLU, ModSigmoid, ModTanhScaled)):
+                target_layers.append(layer)
+            # Also check if it's a nested model (though not currently expected in build_msatvit)
+            elif hasattr(layer, 'layers'):
+                for sub_layer in layer.layers:
+                    if isinstance(sub_layer, (ModReLU, ModSigmoid, ModTanhScaled)):
+                        target_layers.append(sub_layer)
+
+        if not target_layers:
+            return
+
+        with open(self.csv_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            for layer in target_layers:
+                # b is a weight of the layer
+                b_values = layer.get_weights()[0] # b is the first and only weight in these layers
+                for i, val in enumerate(b_values):
+                    writer.writerow([epoch + 1, layer.name, i, float(val)])
+        print(f"Recorded bias values for {len(target_layers)} layers at epoch {epoch + 1}")
+
 
 def save_training_curve(history, dataset_tag):
     import matplotlib
@@ -490,7 +531,9 @@ def main():
         monitor="accuracy", patience=10, restore_best_weights=True
     )
 
-    callbacks = [early_stopper, epoch_checkpoint]
+    bias_monitor = BiasMonitorCallback(dataset_tag)
+    callbacks = [early_stopper, epoch_checkpoint, bias_monitor]
+
 
     record_callback = None
     if args.record_first_epoch:
@@ -614,40 +657,8 @@ def main():
             Y_pred_train = predict_by_batching(model, X_train, 128)
             y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 
             
-            # Test set prediction (Chunked or Standard)
-            if args.max_samples == -1:
-                print("Predicting on Test set in chunks (500k)...")
-                chunk_size = 500000
-                y_pred_test_all = []
-                
-                num_test = len(coords_test)
-                for i in range(0, num_test, chunk_size):
-                    print(f"  Processing chunk {i}-{min(i+chunk_size, num_test)} / {num_test}...")
-                    chunk_coords = coords_test[i : i + chunk_size]
-                    
-                    # Extract patches for chunk
-                    chunk_patches = extract_patches_from_coords(data, chunk_coords, window_size)
-                    chunk_patches = np.expand_dims(chunk_patches, axis=4)
-                    
-                    # Predict
-                    preds = predict_by_batching(model, chunk_patches, 128)
-                    y_pred_chunk = np.argmax(preds, axis=1)
-                    
-                    y_pred_test_all.append(y_pred_chunk)
-                    
-                    # Free memory
-                    del chunk_patches
-                    del preds
-                    gc.collect()
-                    
-                y_pred_test = np.concatenate(y_pred_test_all)
-                
-            else:
-                # Standard flow where X_test is already in memory
-                 # Test set is already predicted as y_pred_test (indices) from model.evaluate/predict block? 
-                 # Wait, previous block only did model.evaluate. We need labels.
-                 Y_pred_test = predict_by_batching(model, X_test, 128)
-                 y_pred_test = np.argmax(Y_pred_test, axis=1)
+            # Test set prediction is already done in metrics calculation phase.
+            # We reuse y_pred_test (indices) from there.
                  
         # Prepare labels (1-based for map)
         y_pred_test_labels = y_pred_test + 1

@@ -57,13 +57,22 @@ def predict_by_batching(model, input_tensor, batch_size):
 # Get the data
 # Get the data
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default='FL_T', help='Dataset to train on (e.g. FL_T, SF, ober, Baltrum_S_FP1)')
+parser.add_argument('--dataset', type=str, default='FL_T', help='Dataset to train on (e.g. FL_T, SF, ober, Baltrum)')
+parser.add_argument('--baltrum-band', default="S", choices=["L", "S"], help="Band for Baltrum dataset (default: S)")
+parser.add_argument('--baltrum-fp', default="FP1", choices=["FP1", "FP2"], help="Flight path for Baltrum dataset (default: FP1)")
 parser.add_argument('--max-samples', type=int, default=200000, help='Max samples to use for training to avoid OOM (default: 200000). Set to -1 for all.')
 parser.add_argument('--epochs', type=int, default=300, help='Number of epochs to train')
 parser.add_argument('--only-gt', action='store_true', help='If True, restrict processing to GT pixels only and skip full map inference.')
 args = parser.parse_args()
 
 dataset = args.dataset
+# Construct full dataset name if "Baltrum" is specified
+if dataset == 'Baltrum':
+    dataset = f"Baltrum_{args.baltrum_band}_{args.baltrum_fp}"
+
+# Make dataset name filesystem-friendly for filenames
+dataset_tag = dataset.replace("/", "_").replace("\\", "_")
+
 max_samples = args.max_samples if args.max_samples > 0 else None
 epochs = args.epochs
 windowSize = 15
@@ -386,40 +395,8 @@ if args.only_gt:
         Y_pred_train = predict_by_batching(model, X_train, 128)
         y_pred_train = np.argmax(Y_pred_train, axis=1) + 1 
         
-        # Test set prediction (Chunked or Standard)
-        if args.max_samples == -1:
-            print("Predicting on Test set in chunks (500k)...")
-            chunk_size = 500000
-            y_pred_test_all = []
-            
-            num_test = len(coords_test)
-            for i in range(0, num_test, chunk_size):
-                print(f"  Processing chunk {i}-{min(i+chunk_size, num_test)} / {num_test}...")
-                chunk_coords = coords_test[i : i + chunk_size]
-                
-                # Extract patches for chunk
-                chunk_patches = extract_patches_from_coords(data, chunk_coords, windowSize=windowSize)
-                chunk_patches = np.expand_dims(chunk_patches, axis=4)
-                
-                # Predict
-                preds = predict_by_batching(model, chunk_patches, 128)
-                y_pred_chunk = np.argmax(preds, axis=1)
-                
-                y_pred_test_all.append(y_pred_chunk)
-                
-                # Free memory
-                del chunk_patches
-                del preds
-                gc.collect()
-                
-            y_pred_test = np.concatenate(y_pred_test_all)
-            
-        else:
-            # Standard flow where X_test is already in memory
-             # Test set is already predicted as y_pred_test (indices) from model.evaluate/predict block? 
-             # Wait, previous block only did model.evaluate. We need labels.
-             Y_pred_test = predict_by_batching(model, X_test, 128)
-             y_pred_test = np.argmax(Y_pred_test, axis=1)
+        # Test set prediction is already done in metrics calculation phase.
+        # We reuse y_pred_test (indices) from there.
              
     # Prepare labels (1-based for map)
     y_pred_test_labels = y_pred_test + 1
@@ -480,7 +457,7 @@ else:
         for idx, (rr, cc) in enumerate(coords_batch):
             pred_map[rr, cc] = labels[idx] + 1
 
-name = 'CV_MsAtViT_Full'
+name = f'CV_MsAtViT_Full_{dataset_tag}'
 mat_save_path = os.path.join("results", name+'.mat')
 sio.savemat(mat_save_path, {name: pred_map})
 
@@ -488,7 +465,7 @@ gt_binary = gt.copy()
 gt_binary[gt_binary>0]=1
 new_map = pred_map * gt_binary
 
-name = 'CV_MsAtViT'
+name = f'CV_MsAtViT_{dataset_tag}'
 mat_save_path_2 = os.path.join("results", name+'.mat')
 sio.savemat(mat_save_path_2, {name: new_map})
 

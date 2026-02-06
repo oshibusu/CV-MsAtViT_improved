@@ -239,7 +239,4 @@ def load_data(name):
     else:
         print("Incorrect data name")
         
-        
-        
     return T, labels
-

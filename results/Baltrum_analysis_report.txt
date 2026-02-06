@@ -1,0 +1,248 @@
+Loading Ground Truth for Baltrum_S_FP1...
+
+==================================================
+Analyzing: CV_MsAtViT_propose_Baltrum_S_FP1.mat
+==================================================
+Non-zero labels count: 2457178
+Zero labels count (Background): 6590054
+Ground Truth non-zero count: 2457178
+Ground Truth zero count: 6590054
+-> Matches GT count exactly.
+
+--- Classification Report ---
+                        precision    recall  f1-score   support
+
+            Tidal flat     0.9696    0.8105    0.8830    179192
+                 Water     0.9342    0.9814    0.9572    483776
+         Coastal shrub     0.7007    0.5027    0.5854    123179
+Dense, high vegetation     0.4639    0.8449    0.5990     68598
+            White dune     0.9101    0.5271    0.6676     99026
+              Peat bog     0.8640    0.8746    0.8692     27441
+            Grey dunes     0.8012    0.9141    0.8539    379573
+           Couch grass     0.7670    0.8443    0.8038     61137
+      Upper salt marsh     0.9181    0.8967    0.9073    276686
+      Lower salt marsh     0.9412    0.9491    0.9451    207602
+                  Sand     0.9528    0.9438    0.9483    263967
+            Settlement     0.9049    0.8178    0.8592    287001
+
+              accuracy                         0.8724   2457178
+             macro avg     0.8440    0.8256    0.8233   2457178
+          weighted avg     0.8829    0.8724    0.8717   2457178
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Tidal flat) (Total: 179192): Correct: 81.05%
+  -> Confused as Class 2 (Water): 12.11% (21700 samples)
+  -> Confused as Class 9 (Upper salt marsh): 4.83% (8654 samples)
+  -> Confused as Class 11 (Sand): 1.83% (3287 samples)
+  -> Confused as Class 7 (Grey dunes): 0.16% (294 samples)
+
+Class 2 (Water) (Total: 483776): Correct: 98.14%
+  -> Confused as Class 11 (Sand): 1.37% (6615 samples)
+  -> Confused as Class 1 (Tidal flat): 0.33% (1601 samples)
+
+Class 3 (Coastal shrub) (Total: 123179): Correct: 50.27%
+  -> Confused as Class 4 (Dense, high vegetation): 33.05% (40708 samples)
+  -> Confused as Class 7 (Grey dunes): 10.16% (12509 samples)
+  -> Confused as Class 12 (Settlement): 4.88% (6006 samples)
+  -> Confused as Class 6 (Peat bog): 1.12% (1378 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.38% (462 samples)
+
+Class 4 (Dense, high vegetation) (Total: 68598): Correct: 84.49%
+  -> Confused as Class 3 (Coastal shrub): 8.97% (6150 samples)
+  -> Confused as Class 12 (Settlement): 4.65% (3191 samples)
+  -> Confused as Class 6 (Peat bog): 1.11% (759 samples)
+  -> Confused as Class 7 (Grey dunes): 0.78% (536 samples)
+
+Class 5 (White dune) (Total: 99026): Correct: 52.71%
+  -> Confused as Class 7 (Grey dunes): 43.03% (42615 samples)
+  -> Confused as Class 12 (Settlement): 1.81% (1790 samples)
+  -> Confused as Class 8 (Couch grass): 0.83% (820 samples)
+  -> Confused as Class 11 (Sand): 0.61% (601 samples)
+  -> Confused as Class 3 (Coastal shrub): 0.58% (577 samples)
+  -> Confused as Class 2 (Water): 0.15% (147 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.14% (134 samples)
+  -> Confused as Class 4 (Dense, high vegetation): 0.13% (128 samples)
+
+Class 6 (Peat bog) (Total: 27441): Correct: 87.46%
+  -> Confused as Class 4 (Dense, high vegetation): 10.25% (2814 samples)
+  -> Confused as Class 3 (Coastal shrub): 1.77% (485 samples)
+  -> Confused as Class 12 (Settlement): 0.40% (109 samples)
+
+Class 7 (Grey dunes) (Total: 379573): Correct: 91.41%
+  -> Confused as Class 12 (Settlement): 2.81% (10677 samples)
+  -> Confused as Class 3 (Coastal shrub): 1.77% (6718 samples)
+  -> Confused as Class 9 (Upper salt marsh): 1.13% (4280 samples)
+  -> Confused as Class 5 (White dune): 1.07% (4064 samples)
+  -> Confused as Class 4 (Dense, high vegetation): 0.66% (2509 samples)
+  -> Confused as Class 8 (Couch grass): 0.66% (2497 samples)
+  -> Confused as Class 11 (Sand): 0.25% (962 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.17% (653 samples)
+
+Class 8 (Couch grass) (Total: 61137): Correct: 84.43%
+  -> Confused as Class 10 (Lower salt marsh): 7.53% (4605 samples)
+  -> Confused as Class 9 (Upper salt marsh): 4.31% (2638 samples)
+  -> Confused as Class 7 (Grey dunes): 1.66% (1012 samples)
+  -> Confused as Class 2 (Water): 0.99% (606 samples)
+  -> Confused as Class 12 (Settlement): 0.55% (338 samples)
+  -> Confused as Class 3 (Coastal shrub): 0.25% (151 samples)
+  -> Confused as Class 6 (Peat bog): 0.12% (74 samples)
+
+Class 9 (Upper salt marsh) (Total: 276686): Correct: 89.67%
+  -> Confused as Class 8 (Couch grass): 3.39% (9389 samples)
+  -> Confused as Class 7 (Grey dunes): 3.27% (9036 samples)
+  -> Confused as Class 10 (Lower salt marsh): 2.11% (5847 samples)
+  -> Confused as Class 1 (Tidal flat): 0.73% (2028 samples)
+  -> Confused as Class 12 (Settlement): 0.44% (1205 samples)
+  -> Confused as Class 11 (Sand): 0.20% (567 samples)
+
+Class 10 (Lower salt marsh) (Total: 207602): Correct: 94.91%
+  -> Confused as Class 9 (Upper salt marsh): 2.21% (4578 samples)
+  -> Confused as Class 8 (Couch grass): 1.00% (2086 samples)
+  -> Confused as Class 6 (Peat bog): 0.60% (1236 samples)
+  -> Confused as Class 7 (Grey dunes): 0.52% (1080 samples)
+  -> Confused as Class 3 (Coastal shrub): 0.35% (728 samples)
+  -> Confused as Class 12 (Settlement): 0.34% (696 samples)
+
+Class 11 (Sand) (Total: 263967): Correct: 94.38%
+  -> Confused as Class 2 (Water): 4.04% (10665 samples)
+  -> Confused as Class 7 (Grey dunes): 0.75% (1983 samples)
+  -> Confused as Class 1 (Tidal flat): 0.30% (791 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.21% (546 samples)
+  -> Confused as Class 12 (Settlement): 0.20% (521 samples)
+  -> Confused as Class 5 (White dune): 0.11% (285 samples)
+
+Class 12 (Settlement) (Total: 287001): Correct: 81.78%
+  -> Confused as Class 4 (Dense, high vegetation): 7.17% (20589 samples)
+  -> Confused as Class 7 (Grey dunes): 5.80% (16656 samples)
+  -> Confused as Class 3 (Coastal shrub): 3.95% (11331 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.40% (1144 samples)
+  -> Confused as Class 8 (Couch grass): 0.27% (767 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.23% (661 samples)
+  -> Confused as Class 5 (White dune): 0.21% (589 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/CV_MsAtViT_propose_Baltrum_S_FP1_cm.png
+
+==================================================
+Analyzing: default_CV_MsAtViT_Baltrum_S_FP1.mat
+==================================================
+Non-zero labels count: 2457178
+Zero labels count (Background): 6590054
+Ground Truth non-zero count: 2457178
+Ground Truth zero count: 6590054
+-> Matches GT count exactly.
+
+--- Classification Report ---
+                        precision    recall  f1-score   support
+
+            Tidal flat     0.8442    0.9821    0.9080    179192
+                 Water     0.9798    0.9354    0.9571    483776
+         Coastal shrub     0.6905    0.7409    0.7148    123179
+Dense, high vegetation     0.6553    0.6406    0.6479     68598
+            White dune     0.6883    0.8211    0.7489     99026
+              Peat bog     0.8798    0.8858    0.8828     27441
+            Grey dunes     0.8765    0.8434    0.8597    379573
+           Couch grass     0.8213    0.8418    0.8315     61137
+      Upper salt marsh     0.9273    0.9180    0.9226    276686
+      Lower salt marsh     0.9436    0.9621    0.9528    207602
+                  Sand     0.9777    0.9571    0.9673    263967
+            Settlement     0.9258    0.8707    0.8974    287001
+
+              accuracy                         0.8942   2457178
+             macro avg     0.8508    0.8666    0.8576   2457178
+          weighted avg     0.8981    0.8942    0.8952   2457178
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Tidal flat) (Total: 179192): Correct: 98.21%
+  -> Confused as Class 9 (Upper salt marsh): 1.00% (1794 samples)
+  -> Confused as Class 11 (Sand): 0.42% (749 samples)
+  -> Confused as Class 2 (Water): 0.30% (545 samples)
+
+Class 2 (Water) (Total: 483776): Correct: 93.54%
+  -> Confused as Class 1 (Tidal flat): 5.54% (26811 samples)
+  -> Confused as Class 11 (Sand): 0.73% (3509 samples)
+
+Class 3 (Coastal shrub) (Total: 123179): Correct: 74.09%
+  -> Confused as Class 4 (Dense, high vegetation): 11.08% (13646 samples)
+  -> Confused as Class 7 (Grey dunes): 8.10% (9978 samples)
+  -> Confused as Class 12 (Settlement): 4.05% (4990 samples)
+  -> Confused as Class 10 (Lower salt marsh): 1.01% (1243 samples)
+  -> Confused as Class 6 (Peat bog): 0.78% (963 samples)
+  -> Confused as Class 5 (White dune): 0.64% (789 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.14% (173 samples)
+
+Class 4 (Dense, high vegetation) (Total: 68598): Correct: 64.06%
+  -> Confused as Class 3 (Coastal shrub): 26.92% (18464 samples)
+  -> Confused as Class 12 (Settlement): 5.00% (3428 samples)
+  -> Confused as Class 6 (Peat bog): 2.96% (2030 samples)
+  -> Confused as Class 7 (Grey dunes): 0.90% (615 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.10% (71 samples)
+
+Class 5 (White dune) (Total: 99026): Correct: 82.11%
+  -> Confused as Class 7 (Grey dunes): 15.39% (15241 samples)
+  -> Confused as Class 12 (Settlement): 0.83% (825 samples)
+  -> Confused as Class 3 (Coastal shrub): 0.59% (584 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.56% (559 samples)
+  -> Confused as Class 8 (Couch grass): 0.30% (293 samples)
+  -> Confused as Class 11 (Sand): 0.16% (154 samples)
+
+Class 6 (Peat bog) (Total: 27441): Correct: 88.58%
+  -> Confused as Class 3 (Coastal shrub): 6.04% (1658 samples)
+  -> Confused as Class 4 (Dense, high vegetation): 3.23% (885 samples)
+  -> Confused as Class 10 (Lower salt marsh): 1.40% (385 samples)
+  -> Confused as Class 12 (Settlement): 0.71% (195 samples)
+
+Class 7 (Grey dunes) (Total: 379573): Correct: 84.34%
+  -> Confused as Class 5 (White dune): 8.47% (32163 samples)
+  -> Confused as Class 12 (Settlement): 2.41% (9147 samples)
+  -> Confused as Class 3 (Coastal shrub): 2.26% (8590 samples)
+  -> Confused as Class 9 (Upper salt marsh): 1.56% (5930 samples)
+  -> Confused as Class 8 (Couch grass): 0.43% (1628 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.19% (713 samples)
+  -> Confused as Class 4 (Dense, high vegetation): 0.17% (643 samples)
+
+Class 8 (Couch grass) (Total: 61137): Correct: 84.18%
+  -> Confused as Class 9 (Upper salt marsh): 7.17% (4384 samples)
+  -> Confused as Class 10 (Lower salt marsh): 6.19% (3784 samples)
+  -> Confused as Class 7 (Grey dunes): 0.99% (605 samples)
+  -> Confused as Class 1 (Tidal flat): 0.43% (261 samples)
+  -> Confused as Class 5 (White dune): 0.41% (251 samples)
+  -> Confused as Class 2 (Water): 0.40% (244 samples)
+  -> Confused as Class 12 (Settlement): 0.15% (91 samples)
+
+Class 9 (Upper salt marsh) (Total: 276686): Correct: 91.80%
+  -> Confused as Class 8 (Couch grass): 2.20% (6081 samples)
+  -> Confused as Class 7 (Grey dunes): 2.18% (6033 samples)
+  -> Confused as Class 10 (Lower salt marsh): 1.76% (4881 samples)
+  -> Confused as Class 1 (Tidal flat): 1.60% (4433 samples)
+  -> Confused as Class 12 (Settlement): 0.26% (711 samples)
+
+Class 10 (Lower salt marsh) (Total: 207602): Correct: 96.21%
+  -> Confused as Class 9 (Upper salt marsh): 1.88% (3896 samples)
+  -> Confused as Class 8 (Couch grass): 1.24% (2582 samples)
+  -> Confused as Class 7 (Grey dunes): 0.24% (505 samples)
+  -> Confused as Class 3 (Coastal shrub): 0.21% (436 samples)
+  -> Confused as Class 12 (Settlement): 0.16% (334 samples)
+
+Class 11 (Sand) (Total: 263967): Correct: 95.71%
+  -> Confused as Class 2 (Water): 3.21% (8479 samples)
+  -> Confused as Class 7 (Grey dunes): 0.31% (830 samples)
+  -> Confused as Class 1 (Tidal flat): 0.27% (723 samples)
+  -> Confused as Class 5 (White dune): 0.21% (554 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.15% (406 samples)
+
+Class 12 (Settlement) (Total: 287001): Correct: 87.07%
+  -> Confused as Class 3 (Coastal shrub): 3.82% (10959 samples)
+  -> Confused as Class 7 (Grey dunes): 3.81% (10936 samples)
+  -> Confused as Class 4 (Dense, high vegetation): 2.76% (7929 samples)
+  -> Confused as Class 9 (Upper salt marsh): 0.92% (2630 samples)
+  -> Confused as Class 5 (White dune): 0.89% (2543 samples)
+  -> Confused as Class 11 (Sand): 0.30% (858 samples)
+  -> Confused as Class 10 (Lower salt marsh): 0.28% (790 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/default_CV_MsAtViT_Baltrum_S_FP1_cm.png

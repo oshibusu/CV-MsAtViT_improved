@@ -1,0 +1,246 @@
+Loading Ground Truth for FL_T...
+
+==================================================
+Analyzing: propose_CV_MsAtViT_FL_T.mat
+==================================================
+Non-zero labels count: 207832
+Zero labels count (Background): 560168
+Ground Truth non-zero count: 207832
+Ground Truth zero count: 560168
+-> Matches GT count exactly.
+
+--- Classification Report ---
+              precision    recall  f1-score   support
+
+       Water     0.9983    0.9682    0.9830     29249
+      Forest     0.9986    0.9683    0.9832     15855
+     Lucerne     0.8927    0.9924    0.9399     11200
+       Grass     0.9782    0.8000    0.8802     10201
+    Rapeseed     0.9828    0.8555    0.9148     21855
+        Beet     0.8804    0.9568    0.9170     14707
+    Potatoes     0.9506    0.9537    0.9522     21344
+        Peas     0.9477    0.9891    0.9680     10396
+  Stem Beans     0.9437    0.9366    0.9402      8471
+   Bare Soil     0.9959    0.2702    0.4251      6317
+       Wheat     0.9765    0.9843    0.9804     17639
+     Wheat 2     0.9719    0.9689    0.9704     10629
+     Wheat 3     0.8877    0.9976    0.9394     22022
+      Barley     0.5973    0.9961    0.7468      7369
+   Buildings     0.9959    0.8426    0.9128       578
+
+    accuracy                         0.9308    207832
+   macro avg     0.9332    0.8987    0.8969    207832
+weighted avg     0.9428    0.9308    0.9271    207832
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Water) (Total: 29249): Correct: 96.82%
+  -> Confused as Class 3 (Lucerne): 2.87% (840 samples)
+  -> Confused as Class 14 (Barley): 0.15% (45 samples)
+  -> Confused as Class 12 (Wheat 2): 0.11% (32 samples)
+
+Class 2 (Forest) (Total: 15855): Correct: 96.83%
+  -> Confused as Class 7 (Potatoes): 3.08% (488 samples)
+
+Class 3 (Lucerne) (Total: 11200): Correct: 99.24%
+  -> Confused as Class 4 (Grass): 0.63% (71 samples)
+
+Class 4 (Grass) (Total: 10201): Correct: 80.00%
+  -> Confused as Class 6 (Beet): 7.36% (751 samples)
+  -> Confused as Class 14 (Barley): 3.48% (355 samples)
+  -> Confused as Class 3 (Lucerne): 3.04% (310 samples)
+  -> Confused as Class 13 (Wheat 3): 1.92% (196 samples)
+  -> Confused as Class 7 (Potatoes): 1.36% (139 samples)
+  -> Confused as Class 9 (Stem Beans): 1.30% (133 samples)
+  -> Confused as Class 8 (Peas): 1.10% (112 samples)
+  -> Confused as Class 1 (Water): 0.20% (20 samples)
+  -> Confused as Class 11 (Wheat): 0.11% (11 samples)
+
+Class 5 (Rapeseed) (Total: 21855): Correct: 85.55%
+  -> Confused as Class 13 (Wheat 3): 10.57% (2310 samples)
+  -> Confused as Class 11 (Wheat): 1.19% (261 samples)
+  -> Confused as Class 12 (Wheat 2): 1.05% (229 samples)
+  -> Confused as Class 8 (Peas): 0.83% (182 samples)
+  -> Confused as Class 6 (Beet): 0.37% (81 samples)
+  -> Confused as Class 3 (Lucerne): 0.20% (44 samples)
+
+Class 6 (Beet) (Total: 14707): Correct: 95.68%
+  -> Confused as Class 7 (Potatoes): 2.26% (333 samples)
+  -> Confused as Class 8 (Peas): 0.80% (117 samples)
+  -> Confused as Class 9 (Stem Beans): 0.36% (53 samples)
+  -> Confused as Class 14 (Barley): 0.21% (31 samples)
+  -> Confused as Class 5 (Rapeseed): 0.19% (28 samples)
+  -> Confused as Class 4 (Grass): 0.14% (20 samples)
+  -> Confused as Class 11 (Wheat): 0.13% (19 samples)
+
+Class 7 (Potatoes) (Total: 21344): Correct: 95.37%
+  -> Confused as Class 6 (Beet): 3.18% (678 samples)
+  -> Confused as Class 9 (Stem Beans): 0.82% (176 samples)
+  -> Confused as Class 8 (Peas): 0.34% (73 samples)
+  -> Confused as Class 13 (Wheat 3): 0.13% (28 samples)
+
+Class 8 (Peas) (Total: 10396): Correct: 98.91%
+  -> Confused as Class 11 (Wheat): 0.54% (56 samples)
+  -> Confused as Class 5 (Rapeseed): 0.40% (42 samples)
+  -> Confused as Class 7 (Potatoes): 0.11% (11 samples)
+
+Class 9 (Stem Beans) (Total: 8471): Correct: 93.66%
+  -> Confused as Class 6 (Beet): 4.44% (376 samples)
+  -> Confused as Class 7 (Potatoes): 0.70% (59 samples)
+  -> Confused as Class 3 (Lucerne): 0.53% (45 samples)
+  -> Confused as Class 4 (Grass): 0.38% (32 samples)
+  -> Confused as Class 11 (Wheat): 0.19% (16 samples)
+
+Class 10 (Bare Soil) (Total: 6317): Correct: 27.02%
+  -> Confused as Class 14 (Barley): 71.00% (4485 samples)
+  -> Confused as Class 5 (Rapeseed): 0.85% (54 samples)
+  -> Confused as Class 4 (Grass): 0.25% (16 samples)
+  -> Confused as Class 8 (Peas): 0.24% (15 samples)
+  -> Confused as Class 9 (Stem Beans): 0.21% (13 samples)
+  -> Confused as Class 6 (Beet): 0.17% (11 samples)
+
+Class 11 (Wheat) (Total: 17639): Correct: 98.43%
+  -> Confused as Class 13 (Wheat 3): 0.70% (123 samples)
+  -> Confused as Class 8 (Peas): 0.33% (58 samples)
+  -> Confused as Class 5 (Rapeseed): 0.22% (39 samples)
+  -> Confused as Class 12 (Wheat 2): 0.15% (26 samples)
+
+Class 12 (Wheat 2) (Total: 10629): Correct: 96.89%
+  -> Confused as Class 5 (Rapeseed): 1.41% (150 samples)
+  -> Confused as Class 13 (Wheat 3): 1.09% (116 samples)
+  -> Confused as Class 11 (Wheat): 0.44% (47 samples)
+
+Class 13 (Wheat 3) (Total: 22022): Correct: 99.76%
+  -> Confused as Class 3 (Lucerne): 0.20% (43 samples)
+
+Class 14 (Barley) (Total: 7369): Correct: 99.61%
+  -> Confused as Class 3 (Lucerne): 0.24% (18 samples)
+
+Class 15 (Buildings) (Total: 578): Correct: 84.26%
+  -> Confused as Class 9 (Stem Beans): 11.42% (66 samples)
+  -> Confused as Class 4 (Grass): 1.38% (8 samples)
+  -> Confused as Class 12 (Wheat 2): 0.87% (5 samples)
+  -> Confused as Class 7 (Potatoes): 0.69% (4 samples)
+  -> Confused as Class 14 (Barley): 0.52% (3 samples)
+  -> Confused as Class 6 (Beet): 0.52% (3 samples)
+  -> Confused as Class 13 (Wheat 3): 0.17% (1 samples)
+  -> Confused as Class 3 (Lucerne): 0.17% (1 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/propose_CV_MsAtViT_FL_T_cm.png
+
+==================================================
+Analyzing: default_CV_MsAtViT_FL_T.mat
+==================================================
+Non-zero labels count: 207832
+Zero labels count (Background): 560168
+Ground Truth non-zero count: 207832
+Ground Truth zero count: 560168
+-> Matches GT count exactly.
+
+--- Classification Report ---
+              precision    recall  f1-score   support
+
+       Water     0.9996    0.9998    0.9997     29249
+      Forest     0.9867    0.9946    0.9906     15855
+     Lucerne     0.9825    0.9857    0.9841     11200
+       Grass     0.9680    0.9156    0.9411     10201
+    Rapeseed     0.9863    0.9557    0.9707     21855
+        Beet     0.9774    0.9097    0.9423     14707
+    Potatoes     0.9508    0.9763    0.9634     21344
+        Peas     0.9882    0.9794    0.9838     10396
+  Stem Beans     0.9225    0.9903    0.9552      8471
+   Bare Soil     0.9720    0.9956    0.9837      6317
+       Wheat     0.9643    0.9900    0.9770     17639
+     Wheat 2     0.9243    0.9868    0.9545     10629
+     Wheat 3     0.9986    0.9753    0.9868     22022
+      Barley     0.9457    0.9805    0.9628      7369
+   Buildings     1.0000    0.7889    0.8820       578
+
+    accuracy                         0.9742    207832
+   macro avg     0.9711    0.9616    0.9652    207832
+weighted avg     0.9747    0.9742    0.9741    207832
+
+
+--- Confusion Statistics (Normalized by True Labels) ---
+
+Class 1 (Water) (Total: 29249): Correct: 99.98%
+  -> Scattered errors (all < 0.1%)
+
+Class 2 (Forest) (Total: 15855): Correct: 99.46%
+  -> Confused as Class 7 (Potatoes): 0.51% (81 samples)
+
+Class 3 (Lucerne) (Total: 11200): Correct: 98.57%
+  -> Confused as Class 4 (Grass): 1.10% (123 samples)
+  -> Confused as Class 12 (Wheat 2): 0.27% (30 samples)
+
+Class 4 (Grass) (Total: 10201): Correct: 91.56%
+  -> Confused as Class 14 (Barley): 3.81% (389 samples)
+  -> Confused as Class 7 (Potatoes): 2.04% (208 samples)
+  -> Confused as Class 3 (Lucerne): 1.73% (176 samples)
+  -> Confused as Class 5 (Rapeseed): 0.25% (26 samples)
+  -> Confused as Class 9 (Stem Beans): 0.21% (21 samples)
+  -> Confused as Class 13 (Wheat 3): 0.20% (20 samples)
+  -> Confused as Class 6 (Beet): 0.17% (17 samples)
+
+Class 5 (Rapeseed) (Total: 21855): Correct: 95.57%
+  -> Confused as Class 11 (Wheat): 2.36% (515 samples)
+  -> Confused as Class 12 (Wheat 2): 1.17% (255 samples)
+  -> Confused as Class 8 (Peas): 0.33% (72 samples)
+  -> Confused as Class 6 (Beet): 0.25% (55 samples)
+
+Class 6 (Beet) (Total: 14707): Correct: 90.97%
+  -> Confused as Class 7 (Potatoes): 4.73% (696 samples)
+  -> Confused as Class 9 (Stem Beans): 3.08% (453 samples)
+  -> Confused as Class 5 (Rapeseed): 0.44% (64 samples)
+  -> Confused as Class 4 (Grass): 0.40% (59 samples)
+  -> Confused as Class 8 (Peas): 0.16% (24 samples)
+
+Class 7 (Potatoes) (Total: 21344): Correct: 97.63%
+  -> Confused as Class 2 (Forest): 0.94% (201 samples)
+  -> Confused as Class 9 (Stem Beans): 0.59% (125 samples)
+  -> Confused as Class 6 (Beet): 0.47% (101 samples)
+  -> Confused as Class 4 (Grass): 0.28% (59 samples)
+
+Class 8 (Peas) (Total: 10396): Correct: 97.94%
+  -> Confused as Class 6 (Beet): 1.05% (109 samples)
+  -> Confused as Class 11 (Wheat): 0.51% (53 samples)
+  -> Confused as Class 7 (Potatoes): 0.24% (25 samples)
+  -> Confused as Class 5 (Rapeseed): 0.23% (24 samples)
+
+Class 9 (Stem Beans) (Total: 8471): Correct: 99.03%
+  -> Confused as Class 4 (Grass): 0.41% (35 samples)
+  -> Confused as Class 6 (Beet): 0.30% (25 samples)
+  -> Confused as Class 7 (Potatoes): 0.25% (21 samples)
+
+Class 10 (Bare Soil) (Total: 6317): Correct: 99.56%
+  -> Confused as Class 5 (Rapeseed): 0.22% (14 samples)
+  -> Confused as Class 9 (Stem Beans): 0.13% (8 samples)
+
+Class 11 (Wheat) (Total: 17639): Correct: 99.00%
+  -> Confused as Class 12 (Wheat 2): 0.45% (80 samples)
+  -> Confused as Class 5 (Rapeseed): 0.19% (34 samples)
+  -> Confused as Class 7 (Potatoes): 0.19% (33 samples)
+  -> Confused as Class 8 (Peas): 0.15% (26 samples)
+
+Class 12 (Wheat 2) (Total: 10629): Correct: 98.68%
+  -> Confused as Class 11 (Wheat): 0.73% (78 samples)
+  -> Confused as Class 5 (Rapeseed): 0.54% (57 samples)
+
+Class 13 (Wheat 3) (Total: 22022): Correct: 97.53%
+  -> Confused as Class 12 (Wheat 2): 2.22% (488 samples)
+  -> Confused as Class 5 (Rapeseed): 0.25% (55 samples)
+
+Class 14 (Barley) (Total: 7369): Correct: 98.05%
+  -> Confused as Class 10 (Bare Soil): 1.95% (144 samples)
+
+Class 15 (Buildings) (Total: 578): Correct: 78.89%
+  -> Confused as Class 9 (Stem Beans): 15.57% (90 samples)
+  -> Confused as Class 7 (Potatoes): 2.42% (14 samples)
+  -> Confused as Class 2 (Forest): 2.08% (12 samples)
+  -> Confused as Class 4 (Grass): 1.04% (6 samples)
+
+--- Visualizing Confusion Matrix ---
+Confusion matrix visualization saved to results/default_CV_MsAtViT_FL_T_cm.png
+で
