@@ -212,26 +212,24 @@ class BatchTraceCallback(keras.callbacks.Callback):
 class BiasMonitorCallback(keras.callbacks.Callback):
     """
     Callback to record learnable bias 'b' of ModReLU, ModSigmoid, and ModTanhScaled layers.
+    Saves collected values to CSV at the end of training.
     """
     def __init__(self, dataset_tag):
         super().__init__()
         self.dataset_tag = dataset_tag
         self.base_dir = os.path.join("results", "bias_monitors", dataset_tag)
         self.csv_path = os.path.join(self.base_dir, "bias_values.csv")
+        self.bias_history = []
 
     def on_train_begin(self, logs=None):
         os.makedirs(self.base_dir, exist_ok=True)
-        with open(self.csv_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["epoch", "layer_name", "channel_index", "value"])
+        self.bias_history = []
 
     def on_epoch_end(self, epoch, logs=None):
         target_layers = []
         for layer in self.model.layers:
-            # Check for target classes
             if isinstance(layer, (ModReLU, ModSigmoid, ModTanhScaled)):
                 target_layers.append(layer)
-            # Also check if it's a nested model (though not currently expected in build_msatvit)
             elif hasattr(layer, 'layers'):
                 for sub_layer in layer.layers:
                     if isinstance(sub_layer, (ModReLU, ModSigmoid, ModTanhScaled)):
@@ -240,14 +238,22 @@ class BiasMonitorCallback(keras.callbacks.Callback):
         if not target_layers:
             return
 
-        with open(self.csv_path, "a", newline="") as f:
+        for layer in target_layers:
+            b_values = layer.get_weights()[0]
+            for i, val in enumerate(b_values):
+                self.bias_history.append([epoch + 1, layer.name, i, float(val)])
+        print(f"Captured bias values for {len(target_layers)} layers at epoch {epoch + 1}")
+
+    def on_train_end(self, logs=None):
+        if not self.bias_history:
+            print("[info] No bias values were captured; skipping CSV save.")
+            return
+            
+        with open(self.csv_path, "w", newline="") as f:
             writer = csv.writer(f)
-            for layer in target_layers:
-                # b is a weight of the layer
-                b_values = layer.get_weights()[0] # b is the first and only weight in these layers
-                for i, val in enumerate(b_values):
-                    writer.writerow([epoch + 1, layer.name, i, float(val)])
-        print(f"Recorded bias values for {len(target_layers)} layers at epoch {epoch + 1}")
+            writer.writerow(["epoch", "layer_name", "channel_index", "value"])
+            writer.writerows(self.bias_history)
+        print(f"Successfully saved all captured bias values to {self.csv_path}")
 
 
 def save_training_curve(history, dataset_tag):
