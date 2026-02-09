@@ -10,7 +10,7 @@ import tensorflow as tf
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, classification_report
 from Load_Data import load_data
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords, ModReLU, ModSigmoid, ModTanhScaled, ModGated
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords, ModReLU, ModSigmoid, ModTanhScaled, ModGated, ModSigmoidGated
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -350,8 +350,14 @@ def parse_args():
     parser.add_argument(
         "--activation-type",
         default="modrelu",
-        choices=["modrelu", "cart_relu", "mod_gated"],
-        help="Type of Activation for Conv layers: 'modrelu' (Modified ReLU), 'cart_relu' (Cartesian ReLU), or 'mod_gated'",
+        choices=["modrelu", "cart_relu", "mod_gated", "mod_sigmoid_gated"],
+        help="Type of Activation for Conv layers: 'modrelu', 'cart_relu', 'mod_gated', or 'mod_sigmoid_gated'",
+    )
+    parser.add_argument(
+        "--b-init",
+        type=float,
+        default=-0.1,
+        help="Initial value for learnable bias 'b' in Mod activations (default: -0.1)",
     )
     parser.add_argument(
         "--coord-activation",
@@ -533,6 +539,7 @@ def main():
         layer_norm_type=args.layer_norm_type,
         activation_type=args.activation_type,
         coord_activation=args.coord_activation,
+        b_init=args.b_init,
     )
     model.summary()
     net_flops(model)

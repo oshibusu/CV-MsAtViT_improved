@@ -434,9 +434,10 @@ class ModReLU(tf.keras.layers.Layer):
     Applies ReLU to the amplitude with a learnable threshold b.
     Formula: ModReLU(z) = ReLU(|z| + b) * (z / |z|)
     """
-    def __init__(self, epsilon=1e-6, **kwargs):
+    def __init__(self, epsilon=1e-6, b_init=-0.1, **kwargs):
         super(ModReLU, self).__init__(**kwargs)
         self.epsilon = epsilon
+        self.b_init = b_init
 
     def build(self, input_shape):
         # Create a learnable bias param 'b'
@@ -444,7 +445,7 @@ class ModReLU(tf.keras.layers.Layer):
         channel_axis = -1
         self.b = self.add_weight(
             shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(-0.1), # Initialize b to -0.1
+            initializer=tf.constant_initializer(self.b_init), 
             trainable=True,
             name="b"
         )
@@ -476,7 +477,7 @@ class ModReLU(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super(ModReLU, self).get_config()
-        config.update({'epsilon': self.epsilon})
+        config.update({'epsilon': self.epsilon, 'b_init': self.b_init})
         return config
 
 
@@ -508,9 +509,10 @@ class ModSigmoid(tf.keras.layers.Layer):
     Formula: ModSigmoid(z) = Sigmoid(|z| + b) * (z / |z|)
     This preserves phase and scales amplitude to (0, 1).
     """
-    def __init__(self, epsilon=1e-6, **kwargs):
+    def __init__(self, epsilon=1e-6, b_init=0.0, **kwargs):
         super(ModSigmoid, self).__init__(**kwargs)
         self.epsilon = epsilon
+        self.b_init = b_init
         self.b = None
 
     def build(self, input_shape):
@@ -519,7 +521,7 @@ class ModSigmoid(tf.keras.layers.Layer):
         channel_axis = -1
         self.b = self.add_weight(
             shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(0.0), 
+            initializer=tf.constant_initializer(self.b_init), 
             trainable=True,
             name="b"
         )
@@ -549,7 +551,7 @@ class ModSigmoid(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super(ModSigmoid, self).get_config()
-        config.update({'epsilon': self.epsilon})
+        config.update({'epsilon': self.epsilon, 'b_init': self.b_init})
         return config
 class ModTanhScaled(tf.keras.layers.Layer):
     """
@@ -559,9 +561,10 @@ class ModTanhScaled(tf.keras.layers.Layer):
     Output = Gate * (z / |z|)
     This preserves phase and scales amplitude using a 0-1 normalized tanh.
     """
-    def __init__(self, epsilon=1e-6, **kwargs):
+    def __init__(self, epsilon=1e-6, b_init=0.0, **kwargs):
         super(ModTanhScaled, self).__init__(**kwargs)
         self.epsilon = epsilon
+        self.b_init = b_init
         self.b = None
 
     def build(self, input_shape):
@@ -570,7 +573,7 @@ class ModTanhScaled(tf.keras.layers.Layer):
         channel_axis = -1
         self.b = self.add_weight(
             shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(0.0), 
+            initializer=tf.constant_initializer(self.b_init), 
             trainable=True,
             name="b"
         )
@@ -602,7 +605,7 @@ class ModTanhScaled(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super(ModTanhScaled, self).get_config()
-        config.update({'epsilon': self.epsilon})
+        config.update({'epsilon': self.epsilon, 'b_init': self.b_init})
         return config
 
 
@@ -613,8 +616,9 @@ class ModGated(tf.keras.layers.Layer):
     Formula: Output = z if (|z| + b >= 0) else 0
     Note: Gradients for 'b' may be zero due to the step function nature.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, b_init=-0.1, **kwargs):
         super(ModGated, self).__init__(**kwargs)
+        self.b_init = b_init
 
     def build(self, input_shape):
         # Create a learnable bias param 'b'
@@ -622,7 +626,7 @@ class ModGated(tf.keras.layers.Layer):
         channel_axis = -1
         self.b = self.add_weight(
             shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(-0.1), # Default same start as ModReLU
+            initializer=tf.constant_initializer(self.b_init), 
             trainable=True,
             name="b"
         )
@@ -645,4 +649,51 @@ class ModGated(tf.keras.layers.Layer):
         return inputs * gate
 
     def get_config(self):
-        return super(ModGated, self).get_config()
+        config = super(ModGated, self).get_config()
+        config.update({'b_init': self.b_init})
+        return config
+
+
+class ModSigmoidGated(tf.keras.layers.Layer):
+    """
+    Soft Gated Identity activation for complex-valued signals.
+    Applies a soft threshold (sigmoid) to the amplitude with a learnable bias b.
+    Formula: Output = z * sigmoid(|z| + b)
+    Differentiable approximation of ModGated.
+    """
+    def __init__(self, b_init=-0.1, **kwargs):
+        super(ModSigmoidGated, self).__init__(**kwargs)
+        self.b_init = b_init
+
+    def build(self, input_shape):
+        # Create a learnable bias param 'b'
+        # One b for each channel (feature map)
+        channel_axis = -1
+        self.b = self.add_weight(
+            shape=(input_shape[channel_axis],),
+            initializer=tf.constant_initializer(self.b_init),
+            trainable=True,
+            name="b"
+        )
+        super(ModSigmoidGated, self).build(input_shape)
+
+    def call(self, inputs):
+        # inputs: Complex tensor z
+        
+        # 1. Compute amplitude |z|
+        amplitude = tf.abs(inputs)
+        
+        # 2. Compute Soft Gate: sigmoid(|z| + b)
+        gate_val = tf.math.sigmoid(amplitude + self.b)
+        
+        # 3. Apply Gate
+        # Cast to same dtype as inputs (complex)
+        gate = tf.cast(gate_val, inputs.dtype)
+        
+        # 4. Output: z * Gate
+        return inputs * gate
+
+    def get_config(self):
+        config = super(ModSigmoidGated, self).get_config()
+        config.update({'b_init': self.b_init})
+        return config

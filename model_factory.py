@@ -11,19 +11,22 @@ from cvnn.layers import (
     ComplexAvgPooling2D,
     ComplexBatchNormalization,
 )
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, ComplexLayerNormalization, ModReLU, ModGated
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, ComplexLayerNormalization, ModReLU, ModGated, ModSigmoidGated
 from CoordAttention import CoordAtt_cmplx
 from ComplexAttention import ComplexMultiHeadAttention
 
 
-def cmplx_multilayer_perceptron(x, hidden_units, dropout_rate, activation_type="modrelu"):
+def cmplx_multilayer_perceptron(x, hidden_units, dropout_rate, activation_type="modrelu", b_init=-0.1):
     for units in hidden_units:
         if activation_type == "modrelu":
             x = ComplexDense(units, activation=None)(x)
-            x = ModReLU()(x)
+            x = ModReLU(b_init=b_init)(x)
         elif activation_type == "mod_gated":
             x = ComplexDense(units, activation=None)(x)
-            x = ModGated()(x)
+            x = ModGated(b_init=b_init)(x)
+        elif activation_type == "mod_sigmoid_gated":
+            x = ComplexDense(units, activation=None)(x)
+            x = ModSigmoidGated(b_init=b_init)(x)
         else:
             x = ComplexDense(units, activation=cart_gelu)(x)
         x = ComplexDropout(dropout_rate)(x)
@@ -66,8 +69,8 @@ class PatchEncoder(layers.Layer):
         return encoded
 
 
-def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
-    if activation_type == "modrelu" or activation_type == "mod_gated":
+def MultiScaleFeatureExtractor(inputs, activation_type="modrelu", b_init=-0.1):
+    if activation_type in ["modrelu", "mod_gated", "mod_sigmoid_gated"]:
         act = None
     else:
         act = "cart_relu"
@@ -80,9 +83,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="spatial_conv3d_block1",
     )(inputs)
     if activation_type == "modrelu":
-        x1 = ModReLU()(x1)
+        x1 = ModReLU(b_init=b_init)(x1)
     elif activation_type == "mod_gated":
-        x1 = ModGated()(x1)
+        x1 = ModGated(b_init=b_init)(x1)
+    elif activation_type == "mod_sigmoid_gated":
+        x1 = ModSigmoidGated(b_init=b_init)(x1)
 
     x1 = ComplexConv3D(
         filters=8,
@@ -92,9 +97,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="spatial_conv3d_block2",
     )(x1)
     if activation_type == "modrelu":
-        x1 = ModReLU()(x1)
+        x1 = ModReLU(b_init=b_init)(x1)
     elif activation_type == "mod_gated":
-        x1 = ModGated()(x1)
+        x1 = ModGated(b_init=b_init)(x1)
+    elif activation_type == "mod_sigmoid_gated":
+        x1 = ModSigmoidGated(b_init=b_init)(x1)
 
     x2 = ComplexConv3D(
         filters=8,
@@ -104,9 +111,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="polar_conv3d_block1",
     )(inputs)
     if activation_type == "modrelu":
-        x2 = ModReLU()(x2)
+        x2 = ModReLU(b_init=b_init)(x2)
     elif activation_type == "mod_gated":
-        x2 = ModGated()(x2)
+        x2 = ModGated(b_init=b_init)(x2)
+    elif activation_type == "mod_sigmoid_gated":
+        x2 = ModSigmoidGated(b_init=b_init)(x2)
 
     x2 = ComplexConv3D(
         filters=8,
@@ -116,9 +125,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="polar_conv3d_block2",
     )(x2)
     if activation_type == "modrelu":
-        x2 = ModReLU()(x2)
+        x2 = ModReLU(b_init=b_init)(x2)
     elif activation_type == "mod_gated":
-        x2 = ModGated()(x2)
+        x2 = ModGated(b_init=b_init)(x2)
+    elif activation_type == "mod_sigmoid_gated":
+        x2 = ModSigmoidGated(b_init=b_init)(x2)
 
     x3 = ComplexConv3D(
         filters=8,
@@ -128,7 +139,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="joint_conv3d_block1",
     )(inputs)
     if activation_type == "modrelu":
-        x3 = ModReLU()(x3)
+        x3 = ModReLU(b_init=b_init)(x3)
+    elif activation_type == "mod_gated":
+        x3 = ModGated(b_init=b_init)(x3)
+    elif activation_type == "mod_sigmoid_gated":
+        x3 = ModSigmoidGated(b_init=b_init)(x3)
 
     x3 = ComplexConv3D(
         filters=8,
@@ -138,7 +153,11 @@ def MultiScaleFeatureExtractor(inputs, activation_type="modrelu"):
         name="joint_conv3d_block2",
     )(x3)
     if activation_type == "modrelu":
-        x3 = ModReLU()(x3)
+        x3 = ModReLU(b_init=b_init)(x3)
+    elif activation_type == "mod_gated":
+        x3 = ModGated(b_init=b_init)(x3)
+    elif activation_type == "mod_sigmoid_gated":
+        x3 = ModSigmoidGated(b_init=b_init)(x3)
 
     concatenated_features = tf.concat([x1, x2, x3], axis=4)
     return concatenated_features
@@ -155,6 +174,7 @@ def cmplx_ViT(
     mlp_head_units,
     layer_norm_type="amplitude",
     activation_type="modrelu",
+    b_init=-0.1,
 ):
     patches = Patches(patch_size)(x)
     encoded_patches = PatchEncoder(num_patches, projection_dim)(patches)
@@ -189,7 +209,7 @@ def cmplx_ViT(
             x3 = tf.complex(x3_r, x3_i)
 
         x3 = cmplx_multilayer_perceptron(
-            x3, hidden_units=transformer_units, dropout_rate=0.1, activation_type=activation_type
+            x3, hidden_units=transformer_units, dropout_rate=0.1, activation_type=activation_type, b_init=b_init
         )
 
         encoded_patches = layers.Add()([x3, x2])
@@ -210,7 +230,7 @@ def cmplx_ViT(
     representation = ComplexDropout(0.5)(representation)
 
     features = cmplx_multilayer_perceptron(
-        representation, hidden_units=mlp_head_units, dropout_rate=0.3, activation_type=activation_type
+        representation, hidden_units=mlp_head_units, dropout_rate=0.3, activation_type=activation_type, b_init=b_init
     )
 
     return features
@@ -230,6 +250,7 @@ def build_msatvit(
     layer_norm_type="complex",
     activation_type="modrelu",
     coord_activation="modtanh",
+    b_init=-0.1,
 ):
     if lr is None:
         lr = 0.0001 if dataset == "ober" else 0.001
@@ -238,16 +259,18 @@ def build_msatvit(
     num_patches = (window_size // patch_size) ** 2
 
     inputs = complex_input(shape=input_shape)
-    x = MultiScaleFeatureExtractor(inputs, activation_type=activation_type)
+    x = MultiScaleFeatureExtractor(inputs, activation_type=activation_type, b_init=b_init)
     x_shape = x.shape
     x = layers.Reshape((x_shape[1], x_shape[2], x_shape[3] * x_shape[4]))(x)
     
-    act_conv = None if activation_type in ["modrelu", "mod_gated"] else "cart_relu"
+    act_conv = None if activation_type in ["modrelu", "mod_gated", "mod_sigmoid_gated"] else "cart_relu"
     x = ComplexConv2D(filters=24, kernel_size=(3, 3), activation=act_conv, padding="same")(x)
     if activation_type == "modrelu":
-        x = ModReLU()(x)
+        x = ModReLU(b_init=b_init)(x)
     elif activation_type == "mod_gated":
-        x = ModGated()(x)
+        x = ModGated(b_init=b_init)(x)
+    elif activation_type == "mod_sigmoid_gated":
+        x = ModSigmoidGated(b_init=b_init)(x)
 
     x = CoordAtt_cmplx(x, 4, activation=coord_activation)
     x = cmplx_ViT(
@@ -261,6 +284,7 @@ def build_msatvit(
         mlp_head_units,
         layer_norm_type=layer_norm_type,
         activation_type=activation_type,
+        b_init=b_init,
     )
     z = ComplexFlatten()(x)
     logits = ComplexDense(num_classes(dataset), activation=softmax_real_with_real)(z)
@@ -293,6 +317,7 @@ CUSTOM_OBJECTS = {
     "ComplexLayerNormalization": ComplexLayerNormalization,
     "ModReLU": ModReLU,
     "ModGated": ModGated,
+    "ModSigmoidGated": ModSigmoidGated,
 }
 
 # Use FixedComplexBatchNormalization only when loading the SavedModel to bypass the TypeError
