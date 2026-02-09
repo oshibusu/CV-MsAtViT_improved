@@ -10,7 +10,7 @@ import tensorflow as tf
 from tensorflow import keras
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, classification_report
 from Load_Data import load_data
-from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords, ModReLU, ModSigmoid, ModTanhScaled
+from SAR_utils import cart_gelu, num_classes, softmax_real_with_real, save_classification_map, Standardize_data, createImageCubes, splitTrainTestSet, AA_andEachClassAccuracy, padWithZeros, get_gt_coords, extract_patches_from_coords, ModReLU, ModSigmoid, ModTanhScaled, ModGated
 from net_flops import net_flops
 from model_factory import build_msatvit
 
@@ -350,8 +350,8 @@ def parse_args():
     parser.add_argument(
         "--activation-type",
         default="modrelu",
-        choices=["modrelu", "cart_relu"],
-        help="Type of Activation for Conv layers: 'modrelu' (Modified ReLU) or 'cart_relu' (Cartesian ReLU)",
+        choices=["modrelu", "cart_relu", "mod_gated"],
+        help="Type of Activation for Conv layers: 'modrelu' (Modified ReLU), 'cart_relu' (Cartesian ReLU), or 'mod_gated'",
     )
     parser.add_argument(
         "--coord-activation",

@@ -604,3 +604,45 @@ class ModTanhScaled(tf.keras.layers.Layer):
         config = super(ModTanhScaled, self).get_config()
         config.update({'epsilon': self.epsilon})
         return config
+
+
+class ModGated(tf.keras.layers.Layer):
+    """
+    Gated Identity activation for complex-valued signals.
+    Applies a hard threshold (step function) to the amplitude with a learnable bias b.
+    Formula: Output = z if (|z| + b >= 0) else 0
+    Note: Gradients for 'b' may be zero due to the step function nature.
+    """
+    def __init__(self, **kwargs):
+        super(ModGated, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        # Create a learnable bias param 'b'
+        # One b for each channel (feature map)
+        channel_axis = -1
+        self.b = self.add_weight(
+            shape=(input_shape[channel_axis],),
+            initializer=tf.constant_initializer(-0.1), # Default same start as ModReLU
+            trainable=True,
+            name="b"
+        )
+        super(ModGated, self).build(input_shape)
+
+    def call(self, inputs):
+        # inputs: Complex tensor z
+        
+        # 1. Compute amplitude |z|
+        amplitude = tf.abs(inputs)
+        
+        # 2. Check condition: |z| + b >= 0
+        condition = tf.math.greater_equal(amplitude + self.b, 0)
+        
+        # 3. Create Gate (1 if True, 0 if False)
+        # Cast to same dtype as inputs (complex)
+        gate = tf.cast(condition, inputs.dtype)
+        
+        # 4. Apply Gate
+        return inputs * gate
+
+    def get_config(self):
+        return super(ModGated, self).get_config()
