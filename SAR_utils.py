@@ -473,6 +473,16 @@ class ModReLU(tf.keras.layers.Layer):
             tf.math.real(inputs) * scale,
             tf.math.imag(inputs) * scale
         )
+
+        # 5. Metrics
+        # Active ratio: percentage of pixels where |z| + b > 0
+        active_ratio = tf.reduce_mean(tf.cast(tf.math.greater(adjusted_amplitude, 0), tf.float32))
+        self.add_metric(active_ratio, name=f"{self.name}_active_ratio")
+        
+        # Mean amplitude: average |z|
+        mean_amp = tf.reduce_mean(amplitude)
+        self.add_metric(mean_amp, name=f"{self.name}_mean_amp")
+
         return output
 
     def get_config(self):
@@ -547,6 +557,16 @@ class ModSigmoid(tf.keras.layers.Layer):
             tf.math.real(inputs) * scale,
             tf.math.imag(inputs) * scale
         )
+
+        # 5. Metrics
+        # Mean Gate Value: average sigmoid output
+        mean_gate = tf.reduce_mean(activated_amplitude)
+        self.add_metric(mean_gate, name=f"{self.name}_mean_gate")
+        
+        # Mean amplitude: average |z|
+        mean_amp = tf.reduce_mean(amplitude)
+        self.add_metric(mean_amp, name=f"{self.name}_mean_amp")
+
         return output
 
     def get_config(self):
@@ -633,7 +653,18 @@ class ModGated(tf.keras.layers.Layer):
         gate = tf.cast(condition, inputs.dtype)
         
         # 4. Apply Gate
-        return inputs * gate
+        output = inputs * gate
+
+        # 5. Metrics
+        # Active ratio: percentage of gates that are 1
+        active_ratio = tf.reduce_mean(tf.cast(condition, tf.float32))
+        self.add_metric(active_ratio, name=f"{self.name}_active_ratio")
+
+        # Mean amplitude: average |z|
+        mean_amp = tf.reduce_mean(amplitude)
+        self.add_metric(mean_amp, name=f"{self.name}_mean_amp")
+
+        return output
 
     def get_config(self):
         config = super(ModGated, self).get_config()
@@ -678,7 +709,18 @@ class ModSigmoidGated(tf.keras.layers.Layer):
         gate = tf.cast(gate_val, inputs.dtype)
         
         # 4. Output: z * Gate
-        return inputs * gate
+        output = inputs * gate
+
+        # 5. Metrics
+        # Mean Gate Value: average sigmoid output
+        mean_gate = tf.reduce_mean(gate_val)
+        self.add_metric(mean_gate, name=f"{self.name}_mean_gate")
+
+        # Mean amplitude: average |z|
+        mean_amp = tf.reduce_mean(amplitude)
+        self.add_metric(mean_amp, name=f"{self.name}_mean_amp")
+
+        return output
 
     def get_config(self):
         config = super(ModSigmoidGated, self).get_config()

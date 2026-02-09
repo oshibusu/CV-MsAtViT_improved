@@ -240,7 +240,10 @@ class BiasMonitorCallback(keras.callbacks.Callback):
             return
 
         for layer in target_layers:
-            b_values = layer.get_weights()[0]
+            weights = layer.get_weights()
+            if not weights:
+                continue
+            b_values = weights[0]
             for i, val in enumerate(b_values):
                 self.bias_history.append([epoch + 1, layer.name, i, float(val)])
         print(f"Captured bias values for {len(target_layers)} layers at epoch {epoch + 1}")
@@ -255,6 +258,56 @@ class BiasMonitorCallback(keras.callbacks.Callback):
             writer.writerow(["epoch", "layer_name", "channel_index", "value"])
             writer.writerows(self.bias_history)
         print(f"Successfully saved all captured bias values to {self.csv_path}")
+
+
+class ActivationStatsCallback(keras.callbacks.Callback):
+    """
+    Callback to record activation statistics (active_ratio, mean_amp, mean_gate).
+    Saves collected values to CSV at the end of training.
+    """
+    def __init__(self, dataset_tag):
+        super().__init__()
+        self.dataset_tag = dataset_tag
+        self.base_dir = os.path.join("results", "activation_stats", dataset_tag)
+        self.csv_path = os.path.join(self.base_dir, "activation_stats.csv")
+        self.stats_history = []
+        self.target_suffixes = ["_active_ratio", "_mean_amp", "_mean_gate"]
+
+    def on_train_begin(self, logs=None):
+        os.makedirs(self.base_dir, exist_ok=True)
+        self.stats_history = []
+
+    def on_epoch_end(self, epoch, logs=None):
+        if logs is None:
+            return
+
+        # Filter logs for our target metrics
+        epoch_stats = []
+        for key, val in logs.items():
+            if any(key.endswith(suffix) for suffix in self.target_suffixes):
+                # key format: {layer_name}_{metric_name}
+                # We want to store: epoch, layer_name, metric_name, value
+                # But splitting by '_' is risky if layer name has underscores.
+                # However, the suffix is known.
+                for suffix in self.target_suffixes:
+                    if key.endswith(suffix):
+                        metric_name = suffix.strip('_') # e.g. "active_ratio"
+                        layer_name = key[:-len(suffix)]
+                        self.stats_history.append([epoch + 1, layer_name, metric_name, float(val)])
+                        break
+        
+        # print(f"Captured activation stats for {len(epoch_stats)} entries at epoch {epoch + 1}")
+
+    def on_train_end(self, logs=None):
+        if not self.stats_history:
+            print("[info] No activation stats were captured; skipping CSV save.")
+            return
+            
+        with open(self.csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["epoch", "layer_name", "metric", "value"])
+            writer.writerows(self.stats_history)
+        print(f"Successfully saved all captured activation stats to {self.csv_path}")
 
 
 def save_training_curve(history, dataset_tag):
@@ -561,7 +614,8 @@ def main():
     )
 
     bias_monitor = BiasMonitorCallback(dataset_tag)
-    callbacks = [early_stopper, epoch_checkpoint, bias_monitor]
+    activation_stats_monitor = ActivationStatsCallback(dataset_tag)
+    callbacks = [early_stopper, epoch_checkpoint, bias_monitor, activation_stats_monitor]
 
 
     record_callback = None
