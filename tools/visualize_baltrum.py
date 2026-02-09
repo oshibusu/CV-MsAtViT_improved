@@ -147,7 +147,7 @@ def main():
 
     files = [
         ("results/CV_MsAtViT_default.mat", "results/CV_MsAtViT_default_vis.png", "CV-MsAtViT Default"),
-        ("results/CV_MsAtViT_popose_Baltrum_S_FP1.mat", "results/CV_MsAtViT_proposed_vis.png", "CV-MsAtViT Proposed (Baltrum_S_FP1)"),
+        ("results/CV_MsAtViT_propose_Baltrum_S_FP1.mat", "results/CV_MsAtViT_proposed_vis.png", "CV-MsAtViT Proposed (Baltrum_S_FP1)"),
          # Also visualizing the Full map for default if exists
         ("results/CV_MsAtViT_default_Full.mat", "results/CV_MsAtViT_default_Full_vis.png", "CV-MsAtViT Default (Full Map)")
     ]

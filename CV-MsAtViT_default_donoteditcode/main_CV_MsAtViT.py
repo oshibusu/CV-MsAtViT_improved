@@ -63,7 +63,12 @@ parser.add_argument('--baltrum-fp', default="FP1", choices=["FP1", "FP2"], help=
 parser.add_argument('--max-samples', type=int, default=200000, help='Max samples to use for training to avoid OOM (default: 200000). Set to -1 for all.')
 parser.add_argument('--epochs', type=int, default=300, help='Number of epochs to train')
 parser.add_argument('--only-gt', action='store_true', help='If True, restrict processing to GT pixels only and skip full map inference.')
+parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
 args = parser.parse_args()
+
+import tensorflow as tf
+tf.keras.utils.set_random_seed(args.seed)
+
 
 dataset = args.dataset
 # Construct full dataset name if "Baltrum" is specified

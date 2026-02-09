@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--pauli", required=True, help="Path to Pauli RGB image")
     parser.add_argument("--default_mat", required=True, help="Path to Default prediction .mat")
     parser.add_argument("--proposed_mat", required=True, help="Path to Proposed prediction .mat")
-    parser.add_argument("--output", required=True, help="Output path for the grid image")
+    parser.add_argument("--output", required=True, help="Output path for the grid image (auto generates _1x3.png as well)")
     
     args = parser.parse_args()
     
@@ -64,12 +64,28 @@ def main():
     print(f"Loading Proposed Mat: {args.proposed_mat}")
     prop_map = load_mat_prediction(args.proposed_mat)
     
-    # Plotting
-    # 2x2 Grid using constrained_layout for better spacing
-    # Use subplot_mosaic for semantic layout? Or just standard subplots.
+    # Dataset specific modifications
+    if "Baltrum" in dataset_name:
+        crop_top = 300
+        crop_bottom = 400
+        print(f"Applying cropping for Baltrum: Removing top {crop_top}, bottom {crop_bottom} pixels")
+        
+        # Helper to crop
+        def crop_img(img, top_px, bot_px):
+            if img.shape[0] > (top_px + bot_px):
+                return img[top_px:-bot_px, ...]
+            return img
+
+        pauli_img = crop_img(pauli_img, crop_top, crop_bottom)
+        gt_map = crop_img(gt_map, crop_top, crop_bottom)
+        def_map = crop_img(def_map, crop_top, crop_bottom)
+        prop_map = crop_img(prop_map, crop_top, crop_bottom)
+        
+        print(f"New shapes -> Pauli: {pauli_img.shape}, GT: {gt_map.shape}")
     
-    # Dataset-specific layout configuration
-    # Increased bottom margin to separate legend from images
+    # --- Plotting 2x2 Grid ---
+    
+    # 2x2 Layout: Pauli, GT, Previous, Proposed
     layout_config = {
         'FL_T': {'figsize': (12, 10), 'bottom': 0.12, 'wspace': 0.05, 'hspace': 0.02, 'legend_y': 0.01},
         'SF':   {'figsize': (11, 10), 'bottom': 0.10, 'wspace': 0.05, 'hspace': 0.02, 'legend_y': 0.0},
@@ -78,23 +94,19 @@ def main():
     }
     
     config = layout_config.get(dataset_name, layout_config['default'])
-    # Fallback for "Baltrum" alias if exact match fails but key exists via other means, or just rely on 'default' if unknown.
-    # Since we normalize dataset_name earlier, accurate keys are important.
     
     fig, axes = plt.subplots(2, 2, figsize=config['figsize'], constrained_layout=False)
-    # Apply specific spacing
     plt.subplots_adjust(bottom=config['bottom'], wspace=config['wspace'], hspace=config['hspace'])
     
-    # Helper to clean axis
     def clean_ax(ax, title):
-        ax.set_title(title, fontsize=14)
+        ax.set_title(title, fontsize=24) # Increased font size
         ax.axis('off')
     
     # TL: Pauli
     axes[0, 0].imshow(pauli_img, aspect='equal')
     clean_ax(axes[0, 0], "Pauli RGB")
     
-    # Prepare Normalization for Class Maps
+    # Prepare Normalization
     num_classes = len(class_names)
     bounds = np.arange(num_classes + 1) - 0.5
     norm = BoundaryNorm(bounds, num_classes)
@@ -103,33 +115,76 @@ def main():
     axes[0, 1].imshow(gt_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
     clean_ax(axes[0, 1], "Ground Truth")
     
-    # BL: Default
+    # BL: Previous (was Default)
     axes[1, 0].imshow(def_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
-    clean_ax(axes[1, 0], "Default Prediction")
+    clean_ax(axes[1, 0], "Previous Prediction")
     
     # BR: Proposed
     axes[1, 1].imshow(prop_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
     clean_ax(axes[1, 1], "Proposed Prediction")
     
     # Legend
-    # Create patches
     patches = [mpatches.Patch(color=cmap(i), label=name) 
-               for i, name in enumerate(class_names) if i > 0] # Skip background 0
+               for i, name in enumerate(class_names) if i > 0]
     
-    # Place Legend at the bottom
-    # We use fig.legend method
-    # Calculate calculated_ncols as default
     calculated_ncols = 4 if len(patches) < 8 else 6
-    if len(patches) > 12: calculated_ncols = 5 # FL_T has 15 classes
+    if len(patches) > 12: calculated_ncols = 5
     
     ncols = config.get('legend_ncols', calculated_ncols)
     
     fig.legend(handles=patches, loc='lower center', 
                bbox_to_anchor=(0.5, config['legend_y']), ncol=ncols, 
-               fontsize=14, frameon=False)
+               fontsize=18, frameon=False) # Increased font size
     
-    print(f"Saving to {args.output}")
-    plt.savefig(args.output, dpi=300, bbox_inches='tight')
+    output_2x2 = args.output
+    print(f"Saving 2x2 grid to {output_2x2}")
+    plt.savefig(output_2x2, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # --- Plotting 1x3 Grid ---
+    
+    # 1x3 Layout: GT, Previous, Proposed (No Pauli)
+    
+    # Adjust config for 1x3
+    if "Baltrum" in dataset_name:
+         figsize_1x3 = (20, 10)
+         bottom_1x3 = 0.15
+         wspace_1x3 = 0.05
+    else:
+         figsize_1x3 = (18, 6)
+         bottom_1x3 = 0.15
+         wspace_1x3 = 0.05 # Increased wspace for others to match style if needed, but 0.05 is fine
+
+    fig, axes = plt.subplots(1, 3, figsize=figsize_1x3)
+    plt.subplots_adjust(bottom=bottom_1x3, wspace=wspace_1x3)
+
+    # 1. GT
+    axes[0].imshow(gt_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
+    clean_ax(axes[0], "Ground Truth")
+
+    # 2. Previous
+    axes[1].imshow(def_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
+    clean_ax(axes[1], "Previous Prediction")
+
+    # 3. Proposed
+    axes[2].imshow(prop_map, cmap=cmap, norm=norm, interpolation='nearest', aspect='equal')
+    clean_ax(axes[2], "Proposed Prediction")
+
+    # Legend (Reuse patches)
+    calculated_ncols_1x3 = 6
+    if len(patches) > 12: calculated_ncols_1x3 = 5
+    
+    # Place legend slightly higher up if needed, or same logic
+    fig.legend(handles=patches, loc='lower center', 
+               bbox_to_anchor=(0.5, 0.02), ncol=calculated_ncols_1x3, 
+               fontsize=18, frameon=False)
+
+    # Output filename for 1x3
+    base, ext = os.path.splitext(args.output)
+    output_1x3 = f"{base}_1x3{ext}"
+    
+    print(f"Saving 1x3 grid to {output_1x3}")
+    plt.savefig(output_1x3, dpi=300, bbox_inches='tight')
     plt.close()
 
 if __name__ == "__main__":

@@ -161,26 +161,32 @@ def analyze_file(filepath, gt):
              
     # 4. Visualize Confusion Matrix
     print("\n--- Visualizing Confusion Matrix ---")
-    plt.figure(figsize=(14, 12))
+    plt.figure(figsize=(16, 14)) # Slightly larger for big font
     plt.rcParams["font.family"] = "serif"
-    # plt.rcParams["font.serif"] = ["Times New Roman"] # Might not exist on minimal docker
     
     # Use full class names for axis
     tick_labels = [CLASS_NAMES[i] if i < len(CLASS_NAMES) else str(i) for i in classes]
     
+    # Increased font size for annotations (numbers in cells)
     sns.heatmap(cm_norm, annot=True, fmt=".2f", cmap="Blues", 
-                xticklabels=tick_labels, yticklabels=tick_labels)
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
-    plt.title(f'Confusion Matrix: {os.path.basename(filepath)}')
-    plt.xticks(rotation=45, ha='right')
-    plt.yticks(rotation=0)
+                xticklabels=tick_labels, yticklabels=tick_labels,
+                annot_kws={"size": 14, "weight": "bold"}) 
+    
+    plt.ylabel('True Label', fontsize=20)
+    plt.xlabel('Predicted Label', fontsize=20)
+    
+    # Replace default with previous in title
+    title_name = os.path.basename(filepath).replace("default", "previous")
+    plt.title(f'Confusion Matrix: {title_name}', fontsize=22)
+    
+    plt.xticks(rotation=45, ha='right', fontsize=16)
+    plt.yticks(rotation=0, fontsize=16)
     plt.tight_layout()
     
-    # Save fig
-    out_name = os.path.splitext(os.path.basename(filepath))[0] + "_cm.png"
+    # Save fig - ensure filename uses previous instead of default
+    out_name = os.path.splitext(os.path.basename(filepath))[0].replace("default", "previous") + "_cm.png"
     out_path = os.path.join(os.path.dirname(filepath), out_name)
-    plt.savefig(out_path, dpi=100)
+    plt.savefig(out_path, dpi=150) # Higher DPI for clarity
     plt.close()
     print(f"Confusion matrix visualization saved to {out_path}")
 
