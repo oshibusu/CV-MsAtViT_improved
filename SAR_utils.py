@@ -556,27 +556,17 @@ class ModSigmoid(tf.keras.layers.Layer):
 class ModTanhScaled(tf.keras.layers.Layer):
     """
     Modified Tanh activation for complex-valued signals, scaled to (0, 1).
-    Applies Tanh to the amplitude with a learnable threshold b, then scales.
-    Formula: Gate = (1 + tanh(|z| + b)) / 2
+    Applies Tanh to the amplitude.
+    Formula: Gate = (1 + tanh(|z|)) / 2
     Output = Gate * (z / |z|)
     This preserves phase and scales amplitude using a 0-1 normalized tanh.
     """
-    def __init__(self, epsilon=1e-6, b_init=0.0, **kwargs):
+    def __init__(self, epsilon=1e-6, **kwargs):
         super(ModTanhScaled, self).__init__(**kwargs)
         self.epsilon = epsilon
-        self.b_init = b_init
-        self.b = None
 
     def build(self, input_shape):
-        # Create a learnable bias param 'b'
-        # One b for each channel (feature map)
-        channel_axis = -1
-        self.b = self.add_weight(
-            shape=(input_shape[channel_axis],),
-            initializer=tf.constant_initializer(self.b_init), 
-            trainable=True,
-            name="b"
-        )
+        # No trainable weights
         super(ModTanhScaled, self).build(input_shape)
 
     def call(self, inputs):
@@ -585,14 +575,11 @@ class ModTanhScaled(tf.keras.layers.Layer):
         # 1. Compute amplitude |z|
         amplitude = tf.abs(inputs)
         
-        # 2. Compute adjusted amplitude: |z| + b
-        adjusted_amplitude = amplitude + self.b
+        # 2. Apply Scaled Tanh: (1 + tanh(|z|)) / 2
+        # No bias b added
+        gate = (1.0 + tf.math.tanh(amplitude)) * 0.5
         
-        # 3. Apply Scaled Tanh: (1 + tanh(|z| + b)) / 2
-        # tanh outputs (-1, 1), so adding 1 makes it (0, 2), dividing by 2 makes it (0, 1)
-        gate = (1.0 + tf.math.tanh(adjusted_amplitude)) * 0.5
-        
-        # 4. Rescale original input: z * (gate / |z|)
+        # 3. Rescale original input: z * (gate / |z|)
         # Add epsilon to denominator to avoid div by zero
         scale = gate / (amplitude + self.epsilon)
         
@@ -605,7 +592,7 @@ class ModTanhScaled(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super(ModTanhScaled, self).get_config()
-        config.update({'epsilon': self.epsilon, 'b_init': self.b_init})
+        config.update({'epsilon': self.epsilon})
         return config
 
 

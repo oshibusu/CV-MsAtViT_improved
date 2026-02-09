@@ -229,11 +229,11 @@ class BiasMonitorCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         target_layers = []
         for layer in self.model.layers:
-            if isinstance(layer, (ModReLU, ModSigmoid, ModTanhScaled)):
+            if isinstance(layer, (ModReLU, ModSigmoid, ModGated, ModSigmoidGated)):
                 target_layers.append(layer)
             elif hasattr(layer, 'layers'):
                 for sub_layer in layer.layers:
-                    if isinstance(sub_layer, (ModReLU, ModSigmoid, ModTanhScaled)):
+                    if isinstance(sub_layer, (ModReLU, ModSigmoid, ModGated, ModSigmoidGated)):
                         target_layers.append(sub_layer)
 
         if not target_layers:
